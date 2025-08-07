@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { UserRole } from '@/types/user';
 import { GraduationCap, Mail, Lock, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -16,6 +17,7 @@ const LoginForm: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +33,8 @@ const LoginForm: React.FC = () => {
         title: "Welcome back!",
         description: `Successfully logged in as ${role}`,
       });
+      // Redirect to dashboard after successful login
+      navigate('/dashboard');
     } else {
       toast({
         title: "Login failed",
