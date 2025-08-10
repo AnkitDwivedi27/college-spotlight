@@ -134,14 +134,23 @@ const LoginForm: React.FC = () => {
               </Button>
             </form>
 
-            <div className="mt-4 text-center">
+            <div className="mt-4 text-center space-y-2">
               <Button
                 variant="link"
-                onClick={() => navigate('/signup')}
+                onClick={() => navigate('/forgot-password')}
                 className="text-sm"
               >
-                Don't have an account? Sign up
+                Forgot your password?
               </Button>
+              <div>
+                <Button
+                  variant="link"
+                  onClick={() => navigate('/signup')}
+                  className="text-sm"
+                >
+                  Don't have an account? Sign up
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

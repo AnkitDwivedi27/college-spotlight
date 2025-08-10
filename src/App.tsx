@@ -8,6 +8,8 @@ import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import LoginForm from "./components/Auth/LoginForm";
 import SignupForm from "./components/Auth/SignupForm";
+import ForgotPasswordForm from "./components/Auth/ForgotPasswordForm";
+import ResetPasswordForm from "./components/Auth/ResetPasswordForm";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ const AppRoutes = () => {
       <Route path="/" element={isAuthenticated ? <Dashboard /> : <Index />} />
       <Route path="/login" element={isAuthenticated ? <Dashboard /> : <LoginForm />} />
       <Route path="/signup" element={isAuthenticated ? <Dashboard /> : <SignupForm />} />
+      <Route path="/forgot-password" element={isAuthenticated ? <Dashboard /> : <ForgotPasswordForm />} />
+      <Route path="/reset-password" element={<ResetPasswordForm />} />
       <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <LoginForm />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
