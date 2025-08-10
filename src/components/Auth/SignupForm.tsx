@@ -6,16 +6,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/context/AuthContext';
 import { UserRole } from '@/types/user';
-import { GraduationCap, Mail, Lock, UserCheck } from 'lucide-react';
+import { GraduationCap, Mail, Lock, UserCheck, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
-const LoginForm: React.FC = () => {
+const SignupForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<UserRole>('student');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { signup } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -23,30 +24,24 @@ const LoginForm: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const { error } = await login(email, password);
+    const { error } = await signup(email, password, fullName, role);
     
     if (!error) {
       toast({
-        title: "Welcome back!",
-        description: "Successfully logged in to your account",
+        title: "Account created!",
+        description: "Please check your email to verify your account.",
       });
-      navigate('/dashboard');
+      navigate('/login');
     } else {
       toast({
-        title: "Login failed",
-        description: error.message || "Invalid credentials",
+        title: "Signup failed",
+        description: error.message || "Failed to create account",
         variant: "destructive",
       });
     }
     
     setIsLoading(false);
   };
-
-  const demoCredentials = [
-    { role: 'admin', email: 'admin@college.edu', name: 'Dr. Sarah Johnson' },
-    { role: 'organizer', email: 'organizer@college.edu', name: 'Prof. Michael Chen' },
-    { role: 'student', email: 'student1@college.edu', name: 'Emma Wilson' }
-  ];
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
@@ -55,46 +50,33 @@ const LoginForm: React.FC = () => {
           <div className="mx-auto bg-white/10 backdrop-blur-sm p-4 rounded-2xl w-fit">
             <GraduationCap className="h-12 w-12 text-white mx-auto" />
           </div>
-          <h1 className="mt-4 text-3xl font-bold text-white">EduEvents Login</h1>
-          <p className="mt-2 text-white/80">Access your college event management dashboard</p>
+          <h1 className="mt-4 text-3xl font-bold text-white">Create Account</h1>
+          <p className="mt-2 text-white/80">Join the college event management system</p>
         </div>
 
         <Card className="bg-white/95 backdrop-blur-sm shadow-elegant border-0">
           <CardHeader className="space-y-1">
-            <CardTitle>Sign in to your account</CardTitle>
+            <CardTitle>Create your account</CardTitle>
             <CardDescription>
-              Choose your role and enter your credentials to continue
+              Enter your details to get started
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
-                <Select value={role} onValueChange={(value: UserRole) => setRole(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select your role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="student">
-                      <div className="flex items-center space-x-2">
-                        <UserCheck className="h-4 w-4" />
-                        <span>Student</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="organizer">
-                      <div className="flex items-center space-x-2">
-                        <UserCheck className="h-4 w-4" />
-                        <span>Organizer</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="admin">
-                      <div className="flex items-center space-x-2">
-                        <UserCheck className="h-4 w-4" />
-                        <span>Admin</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="fullName">Full Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="pl-10"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -125,22 +107,52 @@ const LoginForm: React.FC = () => {
                     placeholder="Enter your password"
                     className="pl-10"
                     required
+                    minLength={6}
                   />
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="role">Role</Label>
+                <Select value={role} onValueChange={(value: UserRole) => setRole(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select your role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">
+                      <div className="flex items-center space-x-2">
+                        <UserCheck className="h-4 w-4" />
+                        <span>Student</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="organizer">
+                      <div className="flex items-center space-x-2">
+                        <UserCheck className="h-4 w-4" />
+                        <span>Organizer</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="admin">
+                      <div className="flex items-center space-x-2">
+                        <UserCheck className="h-4 w-4" />
+                        <span>Admin</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? 'Creating account...' : 'Create Account'}
               </Button>
             </form>
 
             <div className="mt-4 text-center">
               <Button
                 variant="link"
-                onClick={() => navigate('/signup')}
+                onClick={() => navigate('/login')}
                 className="text-sm"
               >
-                Don't have an account? Sign up
+                Already have an account? Sign in
               </Button>
             </div>
           </CardContent>
@@ -150,4 +162,4 @@ const LoginForm: React.FC = () => {
   );
 };
 
-export default LoginForm;
+export default SignupForm;

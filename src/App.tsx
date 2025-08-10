@@ -7,17 +7,27 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import LoginForm from "./components/Auth/LoginForm";
+import SignupForm from "./components/Auth/SignupForm";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <Routes>
       <Route path="/" element={isAuthenticated ? <Dashboard /> : <Index />} />
-      <Route path="/login" element={<LoginForm />} />
+      <Route path="/login" element={isAuthenticated ? <Dashboard /> : <LoginForm />} />
+      <Route path="/signup" element={isAuthenticated ? <Dashboard /> : <SignupForm />} />
       <Route path="/dashboard" element={isAuthenticated ? <Dashboard /> : <LoginForm />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
