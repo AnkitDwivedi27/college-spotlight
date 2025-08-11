@@ -68,7 +68,7 @@ const LoginForm: React.FC = () => {
       style={{ backgroundImage: "url('/app.jpg')" }}
     >
       {/* Blur + Dark Overlay */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
 
       {/* Main Content */}
       <div className="relative z-10 w-full max-w-md space-y-6">
