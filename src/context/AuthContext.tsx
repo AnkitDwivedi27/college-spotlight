@@ -48,11 +48,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(session);
         if (session?.user) {
           // Fetch user profile from our profiles table
-          const { data: profile } = await supabase
+          const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('*')
             .eq('user_id', session.user.id)
-            .single();
+            .maybeSingle();
+          
+          if (profileError) {
+            console.error('Error fetching profile:', profileError);
+          }
           
           if (profile) {
             setUser({
@@ -61,6 +65,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               email: profile.email,
               role: profile.role as UserRole,
             });
+          } else {
+            console.warn('No profile found for user:', session.user.id);
           }
         } else {
           setUser(null);
