@@ -67,7 +67,7 @@ const LoginForm: React.FC = () => {
       className="relative min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: "url('/app.jpg')" }}
     >
-      {/* Softer Blur + Dark Overlay */}
+      {/* Blur + Dark Overlay */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
 
       {/* Main Content */}
@@ -85,11 +85,13 @@ const LoginForm: React.FC = () => {
           </p>
         </div>
 
-        {/* Transparent Login Card */}
-        <Card className="bg-white/50 backdrop-blur-lg shadow-lg border border-white/30">
+        {/* Login Card with 90% transparency */}
+        <Card className="bg-white/10 backdrop-blur-md shadow-elegant border-0">
           <CardHeader className="space-y-1">
-            <CardTitle>Sign in to your account</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-white">
+              Sign in to your account
+            </CardTitle>
+            <CardDescription className="text-white/80">
               Choose your role and enter your credentials to continue
             </CardDescription>
           </CardHeader>
@@ -97,12 +99,14 @@ const LoginForm: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Role Select */}
               <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
+                <Label htmlFor="role" className="text-white">
+                  Role
+                </Label>
                 <Select
                   value={role}
                   onValueChange={(value: UserRole) => setRole(value)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white/20 text-white">
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -130,16 +134,18 @@ const LoginForm: React.FC = () => {
 
               {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-white">
+                  Email
+                </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-white/70" />
                   <Input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
-                    className="pl-10"
+                    className="pl-10 bg-white/20 text-white placeholder-white/70"
                     required
                   />
                 </div>
@@ -147,22 +153,24 @@ const LoginForm: React.FC = () => {
 
               {/* Password */}
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-white">
+                  Password
+                </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-white/70" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="pl-10 pr-10"
+                    className="pl-10 pr-10 bg-white/20 text-white placeholder-white/70"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute right-3 top-3 h-4 w-4 text-white/70 hover:text-white transition-colors"
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -184,7 +192,7 @@ const LoginForm: React.FC = () => {
               <Button
                 variant="link"
                 onClick={() => navigate("/forgot-password")}
-                className="text-sm"
+                className="text-sm text-white"
               >
                 Forgot your password?
               </Button>
@@ -192,7 +200,7 @@ const LoginForm: React.FC = () => {
                 <Button
                   variant="link"
                   onClick={() => navigate("/signup")}
-                  className="text-sm"
+                  className="text-sm text-white"
                 >
                   Don't have an account? Sign up
                 </Button>
