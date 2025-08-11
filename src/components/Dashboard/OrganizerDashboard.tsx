@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -323,13 +324,18 @@ const OrganizerDashboard: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="category">Category</Label>
-                  <Input
-                    id="category"
-                    value={newEvent.category}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, category: e.target.value }))}
-                    placeholder="e.g., Technology, Career, Environment"
-                    required
-                  />
+                  <Select value={newEvent.category} onValueChange={(value) => setNewEvent(prev => ({ ...prev, category: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select event category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="academic">Academic</SelectItem>
+                      <SelectItem value="cultural">Cultural</SelectItem>
+                      <SelectItem value="sports">Sports</SelectItem>
+                      <SelectItem value="technical">Technical</SelectItem>
+                      <SelectItem value="general">General</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
