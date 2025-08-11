@@ -109,6 +109,9 @@ const OrganizerDashboard: React.FC = () => {
     e.preventDefault();
     setCreating(true);
     
+    console.log('Creating event - User:', user);
+    console.log('Form data:', newEvent);
+    
     try {
       const eventData = {
         ...newEvent,
@@ -117,11 +120,19 @@ const OrganizerDashboard: React.FC = () => {
         approval_status: 'pending' as const
       };
 
-      const { error } = await supabase
-        .from('events')
-        .insert([eventData]);
+      console.log('Event data to insert:', eventData);
 
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from('events')
+        .insert([eventData])
+        .select();
+
+      console.log('Supabase response:', { data, error });
+
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw error;
+      }
 
       await fetchEvents();
       
@@ -140,6 +151,7 @@ const OrganizerDashboard: React.FC = () => {
         description: "Your event has been submitted for admin approval.",
       });
     } catch (error) {
+      console.error('Full error object:', error);
       toast({
         title: "Error creating event",
         description: error instanceof Error ? error.message : "Failed to create event",
