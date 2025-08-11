@@ -67,7 +67,7 @@ const LoginForm: React.FC = () => {
       className="relative min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: "url('/app.jpg')" }}
     >
-      {/* Blur + Dark Overlay */}
+      {/* Softer Blur + Dark Overlay */}
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
 
       {/* Main Content */}
@@ -85,8 +85,8 @@ const LoginForm: React.FC = () => {
           </p>
         </div>
 
-        {/* Login Card */}
-        <Card className="bg-white/90 backdrop-blur-md shadow-elegant border-0">
+        {/* Transparent Login Card */}
+        <Card className="bg-white/50 backdrop-blur-lg shadow-lg border border-white/30">
           <CardHeader className="space-y-1">
             <CardTitle>Sign in to your account</CardTitle>
             <CardDescription>
