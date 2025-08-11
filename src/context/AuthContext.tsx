@@ -44,42 +44,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     let mounted = true;
 
-    const loadSession = async () => {
-      try {
-        // Get initial session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          if (mounted) setLoading(false);
-          return;
-        }
-
-        if (session?.user && mounted) {
-          setSession(session);
-          await loadUserProfile(session.user.id);
-        } else if (mounted) {
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Error loading session:', error);
-        if (mounted) setLoading(false);
-      }
-    };
-
     const loadUserProfile = async (userId: string) => {
       try {
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', userId)
           .maybeSingle();
-        
-        if (profileError) {
-          console.error('Error fetching profile:', profileError);
-          if (mounted) setLoading(false);
-          return;
-        }
         
         if (profile && mounted) {
           setUser({
@@ -88,22 +59,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             email: profile.email,
             role: profile.role as UserRole,
           });
-        } else {
-          console.warn('No profile found for user:', userId);
         }
-        
-        if (mounted) setLoading(false);
       } catch (error) {
         console.error('Error loading user profile:', error);
-        if (mounted) setLoading(false);
       }
     };
 
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
-        
         if (!mounted) return;
         
         setSession(session);
@@ -112,13 +76,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           await loadUserProfile(session.user.id);
         } else {
           setUser(null);
-          setLoading(false);
         }
+        setLoading(false);
       }
     );
 
-    // Load initial session
-    loadSession();
+    // Get initial session quickly without blocking
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted) {
+        setSession(session);
+        if (session?.user) {
+          loadUserProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      }
+    });
 
     return () => {
       mounted = false;
