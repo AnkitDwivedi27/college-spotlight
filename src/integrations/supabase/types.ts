@@ -55,6 +55,8 @@ export type Database = {
       }
       events: {
         Row: {
+          approval_status: string | null
+          approved: boolean | null
           category: string
           created_at: string
           created_by: string
@@ -63,12 +65,15 @@ export type Database = {
           id: string
           location: string
           max_participants: number | null
+          organizer_name: string | null
           registration_deadline: string | null
           status: string
           title: string
           updated_at: string
         }
         Insert: {
+          approval_status?: string | null
+          approved?: boolean | null
           category?: string
           created_at?: string
           created_by: string
@@ -77,12 +82,15 @@ export type Database = {
           id?: string
           location: string
           max_participants?: number | null
+          organizer_name?: string | null
           registration_deadline?: string | null
           status?: string
           title: string
           updated_at?: string
         }
         Update: {
+          approval_status?: string | null
+          approved?: boolean | null
           category?: string
           created_at?: string
           created_by?: string
@@ -91,6 +99,7 @@ export type Database = {
           id?: string
           location?: string
           max_participants?: number | null
+          organizer_name?: string | null
           registration_deadline?: string | null
           status?: string
           title?: string
@@ -147,7 +156,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_profile: {
+        Args: { user_uuid: string }
+        Returns: {
+          id: string
+          user_id: string
+          full_name: string
+          email: string
+          role: string
+          department: string
+          year_of_study: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

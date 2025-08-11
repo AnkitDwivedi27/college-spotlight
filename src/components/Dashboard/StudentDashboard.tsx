@@ -1,105 +1,174 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { mockEvents, mockFeedback, mockCertificates } from '@/data/mockData';
-import { Event, Feedback } from '@/types/user';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Calendar, Clock, MapPin, Users, Star, Download, Award, MessageSquare } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Award, MessageSquare } from 'lucide-react';
+
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  event_date: string;
+  location: string;
+  approval_status: 'pending' | 'approved' | 'rejected';
+  created_by: string;
+  max_participants?: number;
+  category: string;
+  created_at: string;
+}
+
+interface EventRegistration {
+  id: string;
+  user_id: string;
+  event_id: string;
+  registered_at: string;
+  status: string;
+}
 
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
-  const [events, setEvents] = useState<Event[]>(mockEvents);
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>(mockFeedback);
-  const [certificates] = useState(mockCertificates);
-  const [selectedEventForFeedback, setSelectedEventForFeedback] = useState<string | null>(null);
-  const [feedbackForm, setFeedbackForm] = useState({ rating: 5, comment: '' });
+  const [events, setEvents] = useState<Event[]>([]);
+  const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [registering, setRegistering] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const approvedEvents = events.filter(e => e.status === 'approved');
-  const myRegisteredEvents = events.filter(e => e.registeredStudents.includes(user!.id));
-  const myAttendedEvents = events.filter(e => e.attendedStudents.includes(user!.id));
-  const availableEvents = approvedEvents.filter(e => !e.registeredStudents.includes(user!.id));
+  useEffect(() => {
+    fetchEvents();
+    fetchRegistrations();
+  }, [user]);
 
-  const handleRegister = (eventId: string) => {
-    setEvents(prev => prev.map(event => 
-      event.id === eventId 
-        ? { ...event, registeredStudents: [...event.registeredStudents, user!.id] }
-        : event
-    ));
-
-    const event = events.find(e => e.id === eventId);
-    toast({
-      title: "Registration Successful",
-      description: `You have registered for "${event?.title}". See you there!`,
-    });
+  const fetchEvents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('approval_status', 'approved')
+        .order('event_date', { ascending: true });
+      
+      if (error) throw error;
+      setEvents((data || []).map(event => ({
+        ...event,
+        approval_status: event.approval_status as 'pending' | 'approved' | 'rejected'
+      })));
+    } catch (error) {
+      toast({
+        title: "Error fetching events",
+        description: error instanceof Error ? error.message : "Failed to load events",
+        variant: "destructive"
+      });
+    }
   };
 
-  const handleUnregister = (eventId: string) => {
-    setEvents(prev => prev.map(event => 
-      event.id === eventId 
-        ? { ...event, registeredStudents: event.registeredStudents.filter(id => id !== user!.id) }
-        : event
-    ));
-
-    const event = events.find(e => e.id === eventId);
-    toast({
-      title: "Unregistered",
-      description: `You have unregistered from "${event?.title}".`,
-      variant: "destructive",
-    });
+  const fetchRegistrations = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('event_registrations')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      setRegistrations(data || []);
+    } catch (error) {
+      console.error('Error fetching registrations:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubmitFeedback = (eventId: string) => {
-    const newFeedback: Feedback = {
-      id: Date.now().toString(),
-      eventId,
-      studentId: user!.id,
-      rating: feedbackForm.rating,
-      comment: feedbackForm.comment,
-      createdAt: new Date().toISOString()
-    };
+  const handleRegister = async (eventId: string) => {
+    if (!user) return;
+    
+    setRegistering(eventId);
+    try {
+      const { error } = await supabase
+        .from('event_registrations')
+        .insert([{
+          user_id: user.id,
+          event_id: eventId,
+          status: 'registered'
+        }]);
 
-    setFeedbacks(prev => [...prev, newFeedback]);
-    setSelectedEventForFeedback(null);
-    setFeedbackForm({ rating: 5, comment: '' });
+      if (error) throw error;
 
-    toast({
-      title: "Feedback Submitted",
-      description: "Thank you for your feedback! Your certificate will be available shortly.",
-    });
+      await fetchRegistrations();
+
+      const event = events.find(e => e.id === eventId);
+      toast({
+        title: "Registration Successful",
+        description: `You have registered for "${event?.title}". See you there!`,
+      });
+    } catch (error) {
+      toast({
+        title: "Registration Failed",
+        description: error instanceof Error ? error.message : "Failed to register for event",
+        variant: "destructive"
+      });
+    } finally {
+      setRegistering(null);
+    }
   };
 
-  const hasSubmittedFeedback = (eventId: string) => {
-    return feedbacks.some(f => f.eventId === eventId && f.studentId === user!.id);
+  const handleUnregister = async (eventId: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('event_registrations')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('event_id', eventId);
+
+      if (error) throw error;
+
+      await fetchRegistrations();
+
+      const event = events.find(e => e.id === eventId);
+      toast({
+        title: "Unregistered",
+        description: `You have unregistered from "${event?.title}".`,
+        variant: "destructive",
+      });
+    } catch (error) {
+      toast({
+        title: "Unregistration Failed",
+        description: error instanceof Error ? error.message : "Failed to unregister from event",
+        variant: "destructive"
+      });
+    }
   };
 
-  const hasCertificate = (eventId: string) => {
-    return certificates.some(c => c.eventId === eventId && c.studentId === user!.id);
+  const isRegistered = (eventId: string) => {
+    return registrations.some(reg => reg.event_id === eventId);
   };
 
-  const canDownloadCertificate = (eventId: string) => {
-    return myAttendedEvents.some(e => e.id === eventId) && hasSubmittedFeedback(eventId);
+  const getRegistrationCount = async (eventId: string) => {
+    const { count } = await supabase
+      .from('event_registrations')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_id', eventId);
+    
+    return count || 0;
   };
 
-  const renderStars = (rating: number, onRate?: (rating: number) => void) => {
+  if (loading) {
     return (
-      <div className="flex space-x-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={`h-5 w-5 ${
-              star <= rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'
-            } ${onRate ? 'cursor-pointer' : ''}`}
-            onClick={() => onRate && onRate(star)}
-          />
-        ))}
+      <div className="p-6">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading dashboard...</p>
+        </div>
       </div>
     );
-  };
+  }
+
+  const myRegisteredEvents = events.filter(event => isRegistered(event.id));
+  const availableEvents = events.filter(event => !isRegistered(event.id));
 
   return (
     <div className="p-6 space-y-6">
@@ -115,13 +184,13 @@ const StudentDashboard: React.FC = () => {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-gradient-card shadow-card">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Registered</p>
-                <p className="text-2xl font-bold text-primary">{myRegisteredEvents.length}</p>
+                <p className="text-sm font-medium text-muted-foreground">Available Events</p>
+                <p className="text-2xl font-bold text-primary">{availableEvents.length}</p>
               </div>
               <Calendar className="h-8 w-8 text-primary" />
             </div>
@@ -132,8 +201,8 @@ const StudentDashboard: React.FC = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Attended</p>
-                <p className="text-2xl font-bold text-success">{myAttendedEvents.length}</p>
+                <p className="text-sm font-medium text-muted-foreground">My Registrations</p>
+                <p className="text-2xl font-bold text-success">{myRegisteredEvents.length}</p>
               </div>
               <Users className="h-8 w-8 text-success" />
             </div>
@@ -144,22 +213,10 @@ const StudentDashboard: React.FC = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Feedback Given</p>
-                <p className="text-2xl font-bold text-accent">{feedbacks.filter(f => f.studentId === user!.id).length}</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Events</p>
+                <p className="text-2xl font-bold text-accent">{events.length}</p>
               </div>
               <MessageSquare className="h-8 w-8 text-accent" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-card shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Certificates</p>
-                <p className="text-2xl font-bold text-warning">{certificates.filter(c => c.studentId === user!.id).length}</p>
-              </div>
-              <Award className="h-8 w-8 text-warning" />
             </div>
           </CardContent>
         </Card>
@@ -193,32 +250,30 @@ const StudentDashboard: React.FC = () => {
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center space-x-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{new Date(event.date).toLocaleDateString()}</span>
+                      <span>{new Date(event.event_date).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>{event.time}</span>
+                      <span>{new Date(event.event_date).toLocaleTimeString()}</span>
                     </div>
                     <div className="flex items-center space-x-2">
                       <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>{event.venue}</span>
+                      <span>{event.location}</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span>{event.registeredStudents.length} registered</span>
-                      {event.maxCapacity && <span>/ {event.maxCapacity} max</span>}
-                    </div>
+                    {event.max_participants && (
+                      <div className="flex items-center space-x-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span>Max: {event.max_participants} participants</span>
+                      </div>
+                    )}
                   </div>
                   
                   <Button 
                     onClick={() => handleRegister(event.id)}
                     className="w-full"
-                    disabled={event.maxCapacity ? event.registeredStudents.length >= event.maxCapacity : false}
+                    disabled={registering === event.id}
                   >
-                    {event.maxCapacity && event.registeredStudents.length >= event.maxCapacity 
-                      ? 'Event Full' 
-                      : 'Register Now'
-                    }
+                    {registering === event.id ? 'Registering...' : 'Register Now'}
                   </Button>
                 </div>
               </div>
@@ -248,90 +303,37 @@ const StudentDashboard: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
                       <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
-                      {event.attendedStudents.includes(user!.id) && (
-                        <Badge className="bg-success/10 text-success border-success/20">
-                          Attended
-                        </Badge>
-                      )}
+                      <Badge className="bg-success/10 text-success border-success/20">
+                        Registered
+                      </Badge>
                     </div>
                     <p className="text-muted-foreground mb-3">{event.description}</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                       <div className="flex items-center space-x-2">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>{new Date(event.date).toLocaleDateString()}</span>
+                        <span>{new Date(event.event_date).toLocaleDateString()}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span>{event.time}</span>
+                        <span>{new Date(event.event_date).toLocaleTimeString()}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span>{event.venue}</span>
+                        <span>{event.location}</span>
                       </div>
                     </div>
                   </div>
                   
                   <div className="flex flex-col space-y-2 ml-4">
-                    {/* Feedback and Certificate Actions */}
-                    {event.attendedStudents.includes(user!.id) && !hasSubmittedFeedback(event.id) && (
-                      <Button 
-                        variant="warning" 
-                        size="sm"
-                        onClick={() => setSelectedEventForFeedback(event.id)}
-                      >
-                        <MessageSquare className="h-4 w-4 mr-1" />
-                        Give Feedback
-                      </Button>
-                    )}
-                    
-                    {canDownloadCertificate(event.id) && (
-                      <Button variant="success" size="sm">
-                        <Download className="h-4 w-4 mr-1" />
-                        Certificate
-                      </Button>
-                    )}
-                    
-                    {!event.attendedStudents.includes(user!.id) && (
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleUnregister(event.id)}
-                      >
-                        Unregister
-                      </Button>
-                    )}
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleUnregister(event.id)}
+                    >
+                      Unregister
+                    </Button>
                   </div>
                 </div>
-
-                {/* Feedback Form */}
-                {selectedEventForFeedback === event.id && (
-                  <div className="mt-4 p-4 bg-secondary/20 rounded-lg border border-border">
-                    <h4 className="font-medium mb-3">Submit Feedback</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <Label>Rating</Label>
-                        {renderStars(feedbackForm.rating, (rating) => setFeedbackForm(prev => ({ ...prev, rating })))}
-                      </div>
-                      <div>
-                        <Label>Comments</Label>
-                        <Textarea
-                          value={feedbackForm.comment}
-                          onChange={(e) => setFeedbackForm(prev => ({ ...prev, comment: e.target.value }))}
-                          placeholder="Share your experience..."
-                          rows={3}
-                        />
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button size="sm" onClick={() => handleSubmitFeedback(event.id)}>
-                          Submit Feedback
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => setSelectedEventForFeedback(null)}>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             ))}
             
