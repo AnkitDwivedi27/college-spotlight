@@ -1,19 +1,38 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/context/AuthContext';
-import { UserRole } from '@/types/user';
-import { GraduationCap, Mail, Lock, UserCheck, Eye, EyeOff } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/context/AuthContext";
+import { UserRole } from "@/types/user";
+import {
+  GraduationCap,
+  Mail,
+  Lock,
+  UserCheck,
+  Eye,
+  EyeOff,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const LoginForm: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('student');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<UserRole>("student");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
@@ -24,14 +43,14 @@ const LoginForm: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const { error } = await login(email, password);
-    
+    const { error } = await login(email, password /* optionally role */);
+
     if (!error) {
       toast({
         title: "Welcome back!",
         description: "Successfully logged in to your account",
       });
-      navigate('/dashboard');
+      navigate("/dashboard");
     } else {
       toast({
         title: "Login failed",
@@ -39,28 +58,35 @@ const LoginForm: React.FC = () => {
         variant: "destructive",
       });
     }
-    
+
     setIsLoading(false);
   };
 
-  const demoCredentials = [
-    { role: 'admin', email: 'admin@college.edu', name: 'Dr. Sarah Johnson' },
-    { role: 'organizer', email: 'organizer@college.edu', name: 'Prof. Michael Chen' },
-    { role: 'student', email: 'student1@college.edu', name: 'Emma Wilson' }
-  ];
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
-      <div className="w-full max-w-md space-y-6">
+    <div
+      className="relative min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: "url('/public/app.jpg')" }}
+    >
+      {/* Blur + Dark Overlay */}
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
+
+      {/* Main Content */}
+      <div className="relative z-10 w-full max-w-md space-y-6">
+        {/* Logo + Heading */}
         <div className="text-center">
           <div className="mx-auto bg-white/10 backdrop-blur-sm p-4 rounded-2xl w-fit">
             <GraduationCap className="h-12 w-12 text-white mx-auto" />
           </div>
-          <h1 className="mt-4 text-3xl font-bold text-white">EduEvents Login</h1>
-          <p className="mt-2 text-white/80">Access your college event management dashboard</p>
+          <h1 className="mt-4 text-3xl font-bold text-white">
+            EduEvents Login
+          </h1>
+          <p className="mt-2 text-white/80">
+            Access your college event management dashboard
+          </p>
         </div>
 
-        <Card className="bg-white/95 backdrop-blur-sm shadow-elegant border-0">
+        {/* Login Card */}
+        <Card className="bg-white/90 backdrop-blur-md shadow-elegant border-0">
           <CardHeader className="space-y-1">
             <CardTitle>Sign in to your account</CardTitle>
             <CardDescription>
@@ -69,9 +95,13 @@ const LoginForm: React.FC = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Role Select */}
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
-                <Select value={role} onValueChange={(value: UserRole) => setRole(value)}>
+                <Select
+                  value={role}
+                  onValueChange={(value: UserRole) => setRole(value)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
@@ -98,6 +128,7 @@ const LoginForm: React.FC = () => {
                 </Select>
               </div>
 
+              {/* Email */}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -114,6 +145,7 @@ const LoginForm: React.FC = () => {
                 </div>
               </div>
 
+              {/* Password */}
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
@@ -132,20 +164,26 @@ const LoginForm: React.FC = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
 
+              {/* Submit Button */}
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign In'}
+                {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
 
+            {/* Extra Links */}
             <div className="mt-4 text-center space-y-2">
               <Button
                 variant="link"
-                onClick={() => navigate('/forgot-password')}
+                onClick={() => navigate("/forgot-password")}
                 className="text-sm"
               >
                 Forgot your password?
@@ -153,7 +191,7 @@ const LoginForm: React.FC = () => {
               <div>
                 <Button
                   variant="link"
-                  onClick={() => navigate('/signup')}
+                  onClick={() => navigate("/signup")}
                   className="text-sm"
                 >
                   Don't have an account? Sign up
