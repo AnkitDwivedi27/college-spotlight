@@ -43,7 +43,7 @@ const LoginForm: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const { error } = await login(email, password /* optionally role */);
+    const { error } = await login(email, password);
 
     if (!error) {
       toast({
@@ -67,14 +67,14 @@ const LoginForm: React.FC = () => {
       className="relative min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: "url('/app.jpg')" }}
     >
-      {/* Blur + Dark Overlay */}
-      <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]"></div>
+      {/* Light dark overlay for contrast */}
+      <div className="absolute inset-0 bg-black/20"></div>
 
       {/* Main Content */}
       <div className="relative z-10 w-full max-w-md space-y-6">
         {/* Logo + Heading */}
         <div className="text-center">
-          <div className="mx-auto bg-white/10 backdrop-blur-sm p-4 rounded-2xl w-fit">
+          <div className="mx-auto bg-white/10 backdrop-blur-md p-4 rounded-2xl w-fit border border-white/20 shadow-lg">
             <GraduationCap className="h-12 w-12 text-white mx-auto" />
           </div>
           <h1 className="mt-4 text-3xl font-bold text-white">
@@ -85,8 +85,8 @@ const LoginForm: React.FC = () => {
           </p>
         </div>
 
-        {/* Login Card with 90% transparency */}
-        <Card className="bg-white/10 backdrop-blur-md shadow-elegant border-0">
+        {/* Glassmorphism Login Card */}
+        <Card className="bg-white/10 backdrop-blur-md border border-white/20 shadow-lg rounded-2xl">
           <CardHeader className="space-y-1">
             <CardTitle className="text-white">
               Sign in to your account
@@ -106,7 +106,7 @@ const LoginForm: React.FC = () => {
                   value={role}
                   onValueChange={(value: UserRole) => setRole(value)}
                 >
-                  <SelectTrigger className="bg-white/20 text-white">
+                  <SelectTrigger className="bg-white/20 text-white border-white/30">
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -145,7 +145,7 @@ const LoginForm: React.FC = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
-                    className="pl-10 bg-white/20 text-white placeholder-white/70"
+                    className="pl-10 bg-white/20 text-white placeholder-white/70 border-white/30"
                     required
                   />
                 </div>
@@ -164,7 +164,7 @@ const LoginForm: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="pl-10 pr-10 bg-white/20 text-white placeholder-white/70"
+                    className="pl-10 pr-10 bg-white/20 text-white placeholder-white/70 border-white/30"
                     required
                   />
                   <button
@@ -182,7 +182,11 @@ const LoginForm: React.FC = () => {
               </div>
 
               {/* Submit Button */}
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full bg-white/20 text-white border border-white/30 hover:bg-white/30"
+                disabled={isLoading}
+              >
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
