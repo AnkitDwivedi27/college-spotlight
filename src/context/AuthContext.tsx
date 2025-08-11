@@ -65,32 +65,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     };
 
+    // Get initial session first
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted) {
+        setSession(session);
+        if (session?.user) {
+          loadUserProfile(session.user.id);
+        }
+        setLoading(false);
+      }
+    });
+
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
         
         setSession(session);
         
         if (session?.user) {
-          await loadUserProfile(session.user.id);
+          loadUserProfile(session.user.id);
         } else {
           setUser(null);
         }
-        setLoading(false);
       }
     );
-
-    // Get initial session quickly without blocking
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (mounted) {
-        setSession(session);
-        if (session?.user) {
-          await loadUserProfile(session.user.id);
-        }
-        setLoading(false);
-      }
-    });
 
     return () => {
       mounted = false;

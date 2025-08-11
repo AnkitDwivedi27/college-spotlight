@@ -109,28 +109,35 @@ const OrganizerDashboard: React.FC = () => {
     e.preventDefault();
     setCreating(true);
     
-    console.log('Creating event - User:', user);
-    console.log('Form data:', newEvent);
-    
     try {
+      // Validate required fields
+      if (!newEvent.title || !newEvent.event_date || !newEvent.location) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      // Ensure we have a valid user
+      if (!user?.id) {
+        throw new Error('User not authenticated');
+      }
+
       const eventData = {
-        ...newEvent,
+        title: newEvent.title,
+        description: newEvent.description || null,
+        event_date: new Date(newEvent.event_date).toISOString(),
+        location: newEvent.location,
         max_participants: newEvent.max_participants ? parseInt(newEvent.max_participants) : null,
-        created_by: user!.id,
+        category: newEvent.category || 'general',
+        created_by: user.id,
         approval_status: 'pending' as const
       };
-
-      console.log('Event data to insert:', eventData);
 
       const { data, error } = await supabase
         .from('events')
         .insert([eventData])
         .select();
 
-      console.log('Supabase response:', { data, error });
-
       if (error) {
-        console.error('Supabase error details:', error);
+        console.error('Supabase error:', error);
         throw error;
       }
 
@@ -151,7 +158,7 @@ const OrganizerDashboard: React.FC = () => {
         description: "Your event has been submitted for admin approval.",
       });
     } catch (error) {
-      console.error('Full error object:', error);
+      console.error('Error creating event:', error);
       toast({
         title: "Error creating event",
         description: error instanceof Error ? error.message : "Failed to create event",
