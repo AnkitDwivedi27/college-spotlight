@@ -65,7 +65,7 @@ const LoginForm: React.FC = () => {
   return (
     <div
       className="relative min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: "url('/public/app.jpg')" }}
+      style={{ backgroundImage: "url('/app.jpg')" }}
     >
       {/* Blur + Dark Overlay */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm"></div>
