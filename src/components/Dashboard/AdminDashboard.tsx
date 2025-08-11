@@ -108,11 +108,18 @@ const AdminDashboard: React.FC = () => {
       
       if (error) throw error;
       
-      await fetchEvents();
+      // Optimistically update the local state instead of refetching all events
+      setEvents(prevEvents => 
+        prevEvents.map(event => 
+          event.id === eventId 
+            ? { ...event, approval_status: action === 'approve' ? 'approved' : 'rejected' }
+            : event
+        )
+      );
       
       toast({
         title: `Event ${action}d successfully`,
-        description: `The event has been ${action}d.`,
+        description: `The event has been ${action}d and remains in the system.`,
       });
     } catch (error) {
       toast({
@@ -120,6 +127,8 @@ const AdminDashboard: React.FC = () => {
         description: error instanceof Error ? error.message : `Failed to ${action} event`,
         variant: "destructive"
       });
+      // If there's an error, refetch to ensure consistency
+      await fetchEvents();
     } finally {
       setUpdating(null);
     }
