@@ -82,14 +82,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     );
 
     // Get initial session quickly without blocking
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (mounted) {
         setSession(session);
         if (session?.user) {
-          loadUserProfile(session.user.id);
-        } else {
-          setLoading(false);
+          await loadUserProfile(session.user.id);
         }
+        setLoading(false);
       }
     });
 
