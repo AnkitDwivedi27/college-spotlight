@@ -43,7 +43,7 @@ const LoginForm: React.FC = () => {
     e.preventDefault();
     setIsLoading(true);
 
-    const { error } = await login(email, password);
+    const { error } = await login(email, password /* optionally role */);
 
     if (!error) {
       toast({
@@ -67,14 +67,14 @@ const LoginForm: React.FC = () => {
       className="relative min-h-screen flex items-center justify-center p-4 bg-cover bg-center bg-no-repeat"
       style={{ backgroundImage: "url('/app.jpg')" }}
     >
-      {/* Light dark overlay for contrast */}
+      {/* Slight dark overlay for readability */}
       <div className="absolute inset-0 bg-black/20"></div>
 
       {/* Main Content */}
       <div className="relative z-10 w-full max-w-md space-y-6">
         {/* Logo + Heading */}
         <div className="text-center">
-          <div className="mx-auto bg-white/10 backdrop-blur-md p-4 rounded-2xl w-fit border border-white/20 shadow-lg">
+          <div className="mx-auto p-4 w-fit">
             <GraduationCap className="h-12 w-12 text-white mx-auto" />
           </div>
           <h1 className="mt-4 text-3xl font-bold text-white">
@@ -85,13 +85,11 @@ const LoginForm: React.FC = () => {
           </p>
         </div>
 
-        {/* Glassmorphism Login Card */}
-        <Card className="bg-white/10 backdrop-blur-md border border-white/20 shadow-lg rounded-2xl">
+        {/* Login Card */}
+        <Card className="bg-white/95 shadow-lg rounded-md border border-gray-200">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-white">
-              Sign in to your account
-            </CardTitle>
-            <CardDescription className="text-white/80">
+            <CardTitle>Sign in to your account</CardTitle>
+            <CardDescription>
               Choose your role and enter your credentials to continue
             </CardDescription>
           </CardHeader>
@@ -99,14 +97,12 @@ const LoginForm: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Role Select */}
               <div className="space-y-2">
-                <Label htmlFor="role" className="text-white">
-                  Role
-                </Label>
+                <Label htmlFor="role">Role</Label>
                 <Select
                   value={role}
                   onValueChange={(value: UserRole) => setRole(value)}
                 >
-                  <SelectTrigger className="bg-white/20 text-white border-white/30">
+                  <SelectTrigger>
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
                   <SelectContent>
@@ -134,18 +130,16 @@ const LoginForm: React.FC = () => {
 
               {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-white">
-                  Email
-                </Label>
+                <Label htmlFor="email">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-white/70" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
-                    className="pl-10 bg-white/20 text-white placeholder-white/70 border-white/30"
+                    className="pl-10"
                     required
                   />
                 </div>
@@ -153,24 +147,22 @@ const LoginForm: React.FC = () => {
 
               {/* Password */}
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-white">
-                  Password
-                </Label>
+                <Label htmlFor="password">Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-white/70" />
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="pl-10 pr-10 bg-white/20 text-white placeholder-white/70 border-white/30"
+                    className="pl-10 pr-10"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 h-4 w-4 text-white/70 hover:text-white transition-colors"
+                    className="absolute right-3 top-3 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -182,11 +174,7 @@ const LoginForm: React.FC = () => {
               </div>
 
               {/* Submit Button */}
-              <Button
-                type="submit"
-                className="w-full bg-white/20 text-white border border-white/30 hover:bg-white/30"
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
@@ -196,7 +184,7 @@ const LoginForm: React.FC = () => {
               <Button
                 variant="link"
                 onClick={() => navigate("/forgot-password")}
-                className="text-sm text-white"
+                className="text-sm"
               >
                 Forgot your password?
               </Button>
@@ -204,7 +192,7 @@ const LoginForm: React.FC = () => {
                 <Button
                   variant="link"
                   onClick={() => navigate("/signup")}
-                  className="text-sm text-white"
+                  className="text-sm"
                 >
                   Don't have an account? Sign up
                 </Button>
