@@ -111,22 +111,42 @@ const OrganizerDashboard: React.FC = () => {
     
     try {
       // Validate required fields
-      if (!newEvent.title || !newEvent.event_date || !newEvent.location) {
-        throw new Error('Please fill in all required fields');
+      if (!newEvent.title.trim()) {
+        throw new Error('Event title is required');
+      }
+      if (!newEvent.event_date) {
+        throw new Error('Event date and time is required');
+      }
+      if (!newEvent.location.trim()) {
+        throw new Error('Location is required');
+      }
+      if (!newEvent.category.trim()) {
+        throw new Error('Category is required');
       }
 
       // Ensure we have a valid user
       if (!user?.id) {
-        throw new Error('User not authenticated');
+        throw new Error('You must be logged in to create events');
+      }
+
+      // Parse and validate the date
+      const eventDate = new Date(newEvent.event_date);
+      if (isNaN(eventDate.getTime())) {
+        throw new Error('Please enter a valid date and time');
+      }
+
+      // Check if the date is in the future
+      if (eventDate <= new Date()) {
+        throw new Error('Event date must be in the future');
       }
 
       const eventData = {
-        title: newEvent.title,
-        description: newEvent.description || null,
-        event_date: new Date(newEvent.event_date).toISOString(),
-        location: newEvent.location,
+        title: newEvent.title.trim(),
+        description: newEvent.description.trim() || null,
+        event_date: eventDate.toISOString(),
+        location: newEvent.location.trim(),
         max_participants: newEvent.max_participants ? parseInt(newEvent.max_participants) : null,
-        category: newEvent.category || 'general',
+        category: newEvent.category.trim(),
         created_by: user.id,
         approval_status: 'pending' as const
       };
@@ -138,7 +158,7 @@ const OrganizerDashboard: React.FC = () => {
 
       if (error) {
         console.error('Supabase error:', error);
-        throw error;
+        throw new Error(error.message || 'Database error occurred');
       }
 
       await fetchEvents();
