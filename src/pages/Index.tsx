@@ -1,8 +1,23 @@
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useNavigate } from 'react-router-dom';
-import { GraduationCap, Calendar, Users, Award, ChevronRight, BookOpen, Clock, Shield } from 'lucide-react';
+import React from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useNavigate } from "react-router-dom";
+import {
+  GraduationCap,
+  Calendar,
+  Users,
+  Award,
+  ChevronRight,
+  BookOpen,
+  Clock,
+  Shield,
+} from "lucide-react";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -11,40 +26,45 @@ const Index = () => {
     {
       icon: Calendar,
       title: "Event Management",
-      description: "Create, manage, and track college events seamlessly"
+      description: "Create, manage, and track college events seamlessly",
     },
     {
       icon: Users,
       title: "Role-Based Access",
-      description: "Different dashboards for admins, organizers, and students"
+      description: "Different dashboards for admins, organizers, and students",
     },
     {
       icon: Award,
       title: "Digital Certificates",
-      description: "Automatic certificate generation after event completion"
+      description: "Automatic certificate generation after event completion",
     },
     {
       icon: BookOpen,
       title: "Feedback System",
-      description: "Collect and analyze event feedback from participants"
+      description: "Collect and analyze event feedback from participants",
     },
     {
       icon: Clock,
       title: "Real-time Updates",
-      description: "Live event status updates and notifications"
+      description: "Live event status updates and notifications",
     },
     {
       icon: Shield,
       title: "Secure Platform",
-      description: "Protected access with role-based authentication"
-    }
+      description: "Protected access with role-based authentication",
+    },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-hero">
+    <div className="min-h-screen">
       {/* Hero Section */}
-      <div className="relative">
+      <div
+        className="relative min-h-screen bg-cover bg-center"
+        style={{ backgroundImage: "url('/app.jpg')" }} // Change to your image path
+      >
+        {/* Overlay */}
         <div className="absolute inset-0 bg-black/20"></div>
+
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
           <div className="text-center space-y-8">
             <div className="space-y-4">
@@ -55,22 +75,23 @@ const Index = () => {
                 EduEvents
               </h1>
               <p className="text-xl md:text-2xl text-white/90 max-w-3xl mx-auto">
-                The complete College Event Management System for organizing, managing, and participating in educational events
+                The complete College Event Management System for organizing,
+                managing, and participating in educational events
               </p>
             </div>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button 
-                variant="hero" 
-                size="lg" 
-                onClick={() => navigate('/login')}
+              <Button
+                variant="hero"
+                size="lg"
+                onClick={() => navigate("/login")}
                 className="text-lg px-8 py-4 shadow-glow"
               >
                 Get Started
                 <ChevronRight className="ml-2 h-5 w-5" />
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 size="lg"
                 className="text-lg px-8 py-4 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20"
               >
@@ -89,13 +110,17 @@ const Index = () => {
               Everything You Need for Event Management
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              From event creation to certificate generation, our platform handles every aspect of college event management
+              From event creation to certificate generation, our platform
+              handles every aspect of college event management
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature, index) => (
-              <Card key={index} className="bg-gradient-card shadow-card hover:shadow-elegant transition-smooth border-0">
+              <Card
+                key={index}
+                className="bg-gradient-card shadow-card hover:shadow-elegant transition-smooth border-0"
+              >
                 <CardHeader className="text-center space-y-4">
                   <div className="mx-auto bg-gradient-primary p-4 rounded-2xl w-fit">
                     <feature.icon className="h-8 w-8 text-white" />
@@ -120,12 +145,13 @@ const Index = () => {
             Ready to Transform Your Events?
           </h2>
           <p className="text-xl text-white/90">
-            Join hundreds of colleges already using EduEvents to manage their events efficiently
+            Join hundreds of colleges already using EduEvents to manage their
+            events efficiently
           </p>
-          <Button 
-            variant="hero" 
+          <Button
+            variant="hero"
             size="lg"
-            onClick={() => navigate('/login')}
+            onClick={() => navigate("/login")}
             className="text-lg px-8 py-4 bg-white text-primary hover:bg-white/90 shadow-glow"
           >
             Start Your Journey
