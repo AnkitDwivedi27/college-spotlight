@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "13.0.4"
@@ -61,12 +61,15 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          end_time: string | null
           event_date: string
           id: string
           location: string
           max_participants: number | null
           organizer_name: string | null
+          priority: number | null
           registration_deadline: string | null
+          start_time: string | null
           status: string
           title: string
           updated_at: string
@@ -78,12 +81,15 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          end_time?: string | null
           event_date: string
           id?: string
           location: string
           max_participants?: number | null
           organizer_name?: string | null
+          priority?: number | null
           registration_deadline?: string | null
+          start_time?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -95,12 +101,15 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          end_time?: string | null
           event_date?: string
           id?: string
           location?: string
           max_participants?: number | null
           organizer_name?: string | null
+          priority?: number | null
           registration_deadline?: string | null
+          start_time?: string | null
           status?: string
           title?: string
           updated_at?: string
@@ -156,15 +165,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_time_slot_conflict: {
+        Args: {
+          p_end_time: string
+          p_event_date: string
+          p_event_id?: string
+          p_start_time: string
+        }
+        Returns: boolean
+      }
       get_user_profile: {
         Args: { user_uuid: string }
         Returns: {
-          id: string
-          user_id: string
-          full_name: string
-          email: string
-          role: string
           department: string
+          email: string
+          full_name: string
+          id: string
+          role: string
+          user_id: string
           year_of_study: number
         }[]
       }
