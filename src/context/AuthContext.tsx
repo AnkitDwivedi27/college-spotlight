@@ -46,11 +46,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const loadUserProfile = async (userId: string) => {
       try {
-        const { data: profile } = await supabase
+        console.log('Loading profile for user:', userId);
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('user_id', userId)
           .maybeSingle();
+        
+        if (error) {
+          console.error('Profile fetch error:', error);
+          throw error;
+        }
+        
+        console.log('Profile data:', profile);
         
         if (profile && mounted) {
           setUser({
@@ -59,9 +67,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             email: profile.email,
             role: profile.role as UserRole,
           });
+        } else if (!profile) {
+          console.log('No profile found for user:', userId);
         }
       } catch (error) {
         console.error('Error loading user profile:', error);
+        // Don't throw the error - just log it and continue
+        // This prevents the app from breaking if profile fetch fails
       }
     };
 
