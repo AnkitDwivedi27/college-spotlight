@@ -13,12 +13,14 @@ interface Event {
   title: string;
   description: string;
   event_date: string;
+  start_time: string;
+  end_time: string;
   location: string;
-  approval_status: 'pending' | 'approved' | 'rejected';
   created_by: string;
   organizer_name?: string;
   max_participants?: number;
   category: string;
+  priority: number;
   created_at: string;
 }
 
@@ -59,8 +61,7 @@ const AdminDashboard: React.FC = () => {
       
       const eventsWithOrganizerName = data.map(event => ({
         ...event,
-        organizer_name: event.profiles?.full_name || 'Unknown',
-        approval_status: event.approval_status as 'pending' | 'approved' | 'rejected'
+        organizer_name: event.profiles?.full_name || 'Unknown'
       }));
       
       setEvents(eventsWithOrganizerName as Event[]);
@@ -96,38 +97,34 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleEventAction = async (eventId: string, action: 'approve' | 'reject') => {
+  const handlePriorityUpdate = async (eventId: string, newPriority: number) => {
     setUpdating(eventId);
     try {
       const { error } = await supabase
         .from('events')
-        .update({ 
-          approval_status: action === 'approve' ? 'approved' : 'rejected' 
-        })
+        .update({ priority: newPriority })
         .eq('id', eventId);
       
       if (error) throw error;
       
-      // Optimistically update the local state instead of refetching all events
       setEvents(prevEvents => 
         prevEvents.map(event => 
           event.id === eventId 
-            ? { ...event, approval_status: action === 'approve' ? 'approved' : 'rejected' }
+            ? { ...event, priority: newPriority }
             : event
         )
       );
       
       toast({
-        title: `Event ${action}d successfully`,
-        description: `The event has been ${action}d and remains in the system.`,
+        title: "Priority updated successfully",
+        description: `Event priority has been set to ${newPriority}.`,
       });
     } catch (error) {
       toast({
-        title: `Error ${action}ing event`,
-        description: error instanceof Error ? error.message : `Failed to ${action} event`,
+        title: "Error updating priority",
+        description: error instanceof Error ? error.message : "Failed to update priority",
         variant: "destructive"
       });
-      // If there's an error, refetch to ensure consistency
       await fetchEvents();
     } finally {
       setUpdating(null);
@@ -184,8 +181,6 @@ const AdminDashboard: React.FC = () => {
 
   const stats = {
     totalEvents: events.length,
-    pendingEvents: events.filter(e => e.approval_status === 'pending').length,
-    approvedEvents: events.filter(e => e.approval_status === 'approved').length,
     totalUsers: users.length
   };
 
@@ -203,7 +198,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-gradient-card shadow-card">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -220,22 +215,10 @@ const AdminDashboard: React.FC = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Pending Review</p>
-                <p className="text-2xl font-bold text-warning">{stats.pendingEvents}</p>
+                <p className="text-sm font-medium text-muted-foreground">Scheduled Today</p>
+                <p className="text-2xl font-bold text-warning">{events.filter(e => new Date(e.event_date).toDateString() === new Date().toDateString()).length}</p>
               </div>
               <Clock className="h-8 w-8 text-warning" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-card shadow-card">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Approved Events</p>
-                <p className="text-2xl font-bold text-success">{stats.approvedEvents}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -261,7 +244,7 @@ const AdminDashboard: React.FC = () => {
             <span>Event Management</span>
           </CardTitle>
           <CardDescription>
-            Review and manage all event submissions
+            View all scheduled events and set priorities
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -272,13 +255,17 @@ const AdminDashboard: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
                       <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
-                      {getStatusBadge(event.approval_status)}
+                      <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
                     </div>
                     <p className="text-muted-foreground mb-3">{event.description}</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                       <div className="flex items-center space-x-2">
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                         <span>{new Date(event.event_date).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span>{event.start_time} - {event.end_time}</span>
                       </div>
                       <div className="flex items-center space-x-2">
                         <MapPin className="h-4 w-4 text-muted-foreground" />
@@ -294,28 +281,27 @@ const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
                   
-                  {event.approval_status === 'pending' && (
-                    <div className="flex space-x-2 ml-4">
-                      <Button 
-                        variant="success" 
-                        size="sm"
-                        onClick={() => handleEventAction(event.id, 'approve')}
+                  <div className="flex items-center space-x-2 ml-4">
+                    <div className="flex flex-col space-y-2">
+                      <span className="text-sm font-medium">Priority</span>
+                      <Select
+                        value={event.priority.toString()}
+                        onValueChange={(value) => handlePriorityUpdate(event.id, parseInt(value))}
                         disabled={updating === event.id}
                       >
-                        <CheckCircle className="h-4 w-4 mr-1" />
-                        {updating === event.id ? 'Approving...' : 'Approve'}
-                      </Button>
-                      <Button 
-                        variant="destructive" 
-                        size="sm"
-                        onClick={() => handleEventAction(event.id, 'reject')}
-                        disabled={updating === event.id}
-                      >
-                        <XCircle className="h-4 w-4 mr-1" />
-                        {updating === event.id ? 'Rejecting...' : 'Reject'}
-                      </Button>
+                        <SelectTrigger className="w-20">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1</SelectItem>
+                          <SelectItem value="2">2</SelectItem>
+                          <SelectItem value="3">3</SelectItem>
+                          <SelectItem value="4">4</SelectItem>
+                          <SelectItem value="5">5</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
             ))}

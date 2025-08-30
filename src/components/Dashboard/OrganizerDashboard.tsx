@@ -16,8 +16,9 @@ interface Event {
   title: string;
   description: string;
   event_date: string;
+  start_time: string;
+  end_time: string;
   location: string;
-  approval_status: 'pending' | 'approved' | 'rejected';
   created_by: string;
   max_participants?: number;
   category: string;
@@ -50,6 +51,8 @@ const OrganizerDashboard: React.FC = () => {
     title: '',
     description: '',
     event_date: '',
+    start_time: '09:00',
+    end_time: '10:00',
     location: '',
     max_participants: '',
     category: ''
@@ -71,10 +74,7 @@ const OrganizerDashboard: React.FC = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setEvents((data || []).map(event => ({
-        ...event,
-        approval_status: event.approval_status as 'pending' | 'approved' | 'rejected'
-      })));
+      setEvents(data || []);
     } catch (error) {
       toast({
         title: "Error fetching events",
@@ -141,15 +141,33 @@ const OrganizerDashboard: React.FC = () => {
         throw new Error('Event date must be in the future');
       }
 
+      // Check for time slot conflicts
+      const { data: conflictData, error: conflictError } = await supabase
+        .rpc('check_time_slot_conflict', {
+          p_event_date: eventDate.toISOString().split('T')[0],
+          p_start_time: newEvent.start_time,
+          p_end_time: newEvent.end_time
+        });
+
+      if (conflictError) {
+        console.error('Conflict check error:', conflictError);
+        throw new Error('Error checking time slot availability');
+      }
+
+      if (conflictData) {
+        throw new Error('This time slot is already booked. Please choose a different time.');
+      }
+
       const eventData = {
         title: newEvent.title.trim(),
         description: newEvent.description.trim() || null,
         event_date: eventDate.toISOString(),
+        start_time: newEvent.start_time,
+        end_time: newEvent.end_time,
         location: newEvent.location.trim(),
         max_participants: newEvent.max_participants ? parseInt(newEvent.max_participants) : null,
         category: newEvent.category.trim(),
-        created_by: user.id,
-        approval_status: 'pending' as const
+        created_by: user.id
       };
 
       const { data, error } = await supabase
@@ -168,6 +186,8 @@ const OrganizerDashboard: React.FC = () => {
         title: '',
         description: '',
         event_date: '',
+        start_time: '09:00',
+        end_time: '10:00',
         location: '',
         max_participants: '',
         category: ''
@@ -176,7 +196,7 @@ const OrganizerDashboard: React.FC = () => {
 
       toast({
         title: "Event Created",
-        description: "Your event has been submitted for admin approval.",
+        description: "Your event has been booked successfully!",
       });
     } catch (error) {
       console.error('Error creating event:', error);
@@ -243,7 +263,6 @@ const OrganizerDashboard: React.FC = () => {
     );
   }
 
-  const approvedEvents = events.filter(e => e.approval_status === 'approved');
   const totalRegistrations = registrations.length;
 
   return (
@@ -281,8 +300,8 @@ const OrganizerDashboard: React.FC = () => {
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Approved</p>
-                <p className="text-2xl font-bold text-success">{approvedEvents.length}</p>
+                <p className="text-sm font-medium text-muted-foreground">Active Events</p>
+                <p className="text-2xl font-bold text-success">{events.length}</p>
               </div>
               <CheckCircle2 className="h-8 w-8 text-success" />
             </div>
@@ -351,17 +370,40 @@ const OrganizerDashboard: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="event_date">Date & Time</Label>
+                  <Label htmlFor="event_date">Event Date</Label>
                   <Input
                     id="event_date"
-                    type="datetime-local"
+                    type="date"
                     value={newEvent.event_date}
                     onChange={(e) => setNewEvent(prev => ({ ...prev, event_date: e.target.value }))}
                     required
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="start_time">Start Time</Label>
+                  <Input
+                    id="start_time"
+                    type="time"
+                    value={newEvent.start_time}
+                    onChange={(e) => setNewEvent(prev => ({ ...prev, start_time: e.target.value }))}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end_time">End Time</Label>
+                  <Input
+                    id="end_time"
+                    type="time"
+                    value={newEvent.end_time}
+                    onChange={(e) => setNewEvent(prev => ({ ...prev, end_time: e.target.value }))}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="max_participants">Max Capacity</Label>
                   <Input
@@ -413,40 +455,42 @@ const OrganizerDashboard: React.FC = () => {
                 <div key={event.id} className="p-4 border border-border rounded-lg bg-gradient-card">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
+                      <div className="flex items-center space-x-2">
                         <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
-                        {getStatusBadge(event.approval_status)}
+                        <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
                       </div>
                       <p className="text-muted-foreground mb-3">{event.description}</p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
                         <div className="flex items-center space-x-2">
                           <Calendar className="h-4 w-4 text-muted-foreground" />
                           <span>{new Date(event.event_date).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span>{new Date(event.event_date).toLocaleTimeString()}</span>
+                          <span>{event.start_time} - {event.end_time}</span>
                         </div>
                         <div className="flex items-center space-x-2">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
                           <span>{event.location}</span>
                         </div>
+                        <div className="flex items-center space-x-2">
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                          <span>Registrations: {eventRegistrations.length}</span>
+                        </div>
                       </div>
                     </div>
                     
-                    {event.approval_status === 'pending' && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteEvent(event.id)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Delete
-                      </Button>
-                    )}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteEvent(event.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
                   </div>
 
-                  {event.approval_status === 'approved' && eventRegistrations.length > 0 && (
+                  {eventRegistrations.length > 0 && (
                     <div className="mt-4 p-3 bg-secondary/20 rounded-lg">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Registered Students ({eventRegistrations.length})</h4>
