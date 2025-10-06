@@ -23,6 +23,7 @@ interface Event {
   max_participants?: number;
   category: string;
   created_at: string;
+  approval_status?: string;
 }
 
 interface EventRegistration {
@@ -141,23 +142,6 @@ const OrganizerDashboard: React.FC = () => {
         throw new Error('Event date must be in the future');
       }
 
-      // Check for time slot conflicts
-      const { data: conflictData, error: conflictError } = await supabase
-        .rpc('check_time_slot_conflict', {
-          p_event_date: eventDate.toISOString().split('T')[0],
-          p_start_time: newEvent.start_time,
-          p_end_time: newEvent.end_time
-        });
-
-      if (conflictError) {
-        console.error('Conflict check error:', conflictError);
-        throw new Error('Error checking time slot availability');
-      }
-
-      if (conflictData) {
-        throw new Error('This time slot is already booked. Please choose a different time.');
-      }
-
       const eventData = {
         title: newEvent.title.trim(),
         description: newEvent.description.trim() || null,
@@ -194,9 +178,16 @@ const OrganizerDashboard: React.FC = () => {
       });
       setShowCreateForm(false);
 
+      // Check if the event was auto-approved or needs admin review
+      const createdEvent = data?.[0];
+      const isApproved = createdEvent?.approval_status === 'approved';
+
       toast({
-        title: "Event Created",
-        description: "Your event has been booked successfully!",
+        title: isApproved ? "Event Auto-Approved!" : "Event Submitted",
+        description: isApproved 
+          ? "No time slot conflict detected. Your event is live!" 
+          : "Time slot conflict detected. Your event is pending admin approval.",
+        variant: isApproved ? "default" : "default"
       });
     } catch (error) {
       console.error('Error creating event:', error);
@@ -457,7 +448,7 @@ const OrganizerDashboard: React.FC = () => {
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
                         <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
-                        <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
+                        {event.approval_status && getStatusBadge(event.approval_status)}
                       </div>
                       <p className="text-muted-foreground mb-3">{event.description}</p>
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">

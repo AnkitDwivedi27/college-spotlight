@@ -21,6 +21,7 @@ interface Event {
   max_participants?: number;
   category: string;
   priority: number;
+  approval_status?: string;
   created_at: string;
 }
 
@@ -155,6 +156,33 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleApprovalUpdate = async (eventId: string, newStatus: 'approved' | 'rejected') => {
+    setUpdating(eventId);
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({ approval_status: newStatus })
+        .eq('id', eventId);
+      
+      if (error) throw error;
+      
+      await fetchEvents();
+      
+      toast({
+        title: `Event ${newStatus}`,
+        description: `The event has been ${newStatus}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error updating approval status",
+        description: error instanceof Error ? error.message : "Failed to update status",
+        variant: "destructive"
+      });
+    } finally {
+      setUpdating(null);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'approved':
@@ -179,8 +207,12 @@ const AdminDashboard: React.FC = () => {
     );
   }
 
+  const pendingEvents = events.filter(e => e.approval_status === 'pending');
+  const approvedEvents = events.filter(e => e.approval_status === 'approved');
+  
   const stats = {
     totalEvents: events.length,
+    pendingEvents: pendingEvents.length,
     totalUsers: users.length
   };
 
@@ -198,7 +230,7 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card className="bg-gradient-card shadow-card">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -210,15 +242,27 @@ const AdminDashboard: React.FC = () => {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="bg-gradient-card shadow-card">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Pending Approval</p>
+                <p className="text-2xl font-bold text-warning">{stats.pendingEvents}</p>
+              </div>
+              <Clock className="h-8 w-8 text-warning" />
+            </div>
+          </CardContent>
+        </Card>
         
         <Card className="bg-gradient-card shadow-card">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Scheduled Today</p>
-                <p className="text-2xl font-bold text-warning">{events.filter(e => new Date(e.event_date).toDateString() === new Date().toDateString()).length}</p>
+                <p className="text-2xl font-bold text-success">{events.filter(e => new Date(e.event_date).toDateString() === new Date().toDateString()).length}</p>
               </div>
-              <Clock className="h-8 w-8 text-warning" />
+              <CheckCircle className="h-8 w-8 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -244,18 +288,18 @@ const AdminDashboard: React.FC = () => {
             <span>Event Management</span>
           </CardTitle>
           <CardDescription>
-            View all scheduled events and set priorities
+            Approve pending events and manage priorities (Events with conflicts need approval)
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {events.map((event) => (
+            {[...pendingEvents, ...approvedEvents].map((event) => (
               <div key={event.id} className="p-4 border border-border rounded-lg bg-gradient-card">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
                       <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
-                      <Badge className="bg-success/10 text-success border-success/20">Active</Badge>
+                      {event.approval_status && getStatusBadge(event.approval_status)}
                     </div>
                     <p className="text-muted-foreground mb-3">{event.description}</p>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
@@ -282,6 +326,28 @@ const AdminDashboard: React.FC = () => {
                   </div>
                   
                   <div className="flex items-center space-x-2 ml-4">
+                    {event.approval_status === 'pending' && (
+                      <div className="flex space-x-2">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => handleApprovalUpdate(event.id, 'approved')}
+                          disabled={updating === event.id}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleApprovalUpdate(event.id, 'rejected')}
+                          disabled={updating === event.id}
+                        >
+                          <XCircle className="h-4 w-4 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
                     <div className="flex flex-col space-y-2">
                       <span className="text-sm font-medium">Priority</span>
                       <Select
