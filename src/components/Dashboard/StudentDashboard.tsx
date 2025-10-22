@@ -34,12 +34,19 @@ const StudentDashboard: React.FC = () => {
   const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState<string | null>(null);
+  const [eventCapacities, setEventCapacities] = useState<Record<string, number>>({});
   const { toast } = useToast();
 
   useEffect(() => {
     fetchEvents();
     fetchRegistrations();
   }, [user]);
+
+  useEffect(() => {
+    if (events.length > 0) {
+      fetchAllEventCapacities();
+    }
+  }, [events]);
 
   const fetchEvents = async () => {
     try {
@@ -81,11 +88,47 @@ const StudentDashboard: React.FC = () => {
     }
   };
 
+  const fetchAllEventCapacities = async () => {
+    const capacities: Record<string, number> = {};
+    
+    for (const event of events) {
+      const { count } = await supabase
+        .from('event_registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', event.id);
+      
+      capacities[event.id] = count || 0;
+    }
+    
+    setEventCapacities(capacities);
+  };
+
   const handleRegister = async (eventId: string) => {
     if (!user) return;
     
     setRegistering(eventId);
     try {
+      const event = events.find(e => e.id === eventId);
+      
+      // Check current registration count
+      const { count } = await supabase
+        .from('event_registrations')
+        .select('*', { count: 'exact', head: true })
+        .eq('event_id', eventId);
+      
+      const currentCount = count || 0;
+      
+      // Check if event is at max capacity
+      if (event?.max_participants && currentCount >= event.max_participants) {
+        toast({
+          title: "Event Full",
+          description: `Sorry, "${event.title}" has reached its maximum capacity of ${event.max_participants} participants.`,
+          variant: "destructive"
+        });
+        setRegistering(null);
+        return;
+      }
+
       const { error } = await supabase
         .from('event_registrations')
         .insert([{
@@ -97,8 +140,8 @@ const StudentDashboard: React.FC = () => {
       if (error) throw error;
 
       await fetchRegistrations();
+      await fetchAllEventCapacities();
 
-      const event = events.find(e => e.id === eventId);
       toast({
         title: "Registration Successful",
         description: `You have registered for "${event?.title}". See you there!`,
@@ -127,6 +170,7 @@ const StudentDashboard: React.FC = () => {
       if (error) throw error;
 
       await fetchRegistrations();
+      await fetchAllEventCapacities();
 
       const event = events.find(e => e.id === eventId);
       toast({
@@ -147,13 +191,15 @@ const StudentDashboard: React.FC = () => {
     return registrations.some(reg => reg.event_id === eventId);
   };
 
-  const getRegistrationCount = async (eventId: string) => {
-    const { count } = await supabase
-      .from('event_registrations')
-      .select('*', { count: 'exact', head: true })
-      .eq('event_id', eventId);
-    
-    return count || 0;
+  const getRemainingCapacity = (event: Event) => {
+    if (!event.max_participants) return null;
+    const registered = eventCapacities[event.id] || 0;
+    return event.max_participants - registered;
+  };
+
+  const isEventFull = (event: Event) => {
+    const remaining = getRemainingCapacity(event);
+    return remaining !== null && remaining <= 0;
   };
 
   if (loading) {
@@ -263,7 +309,14 @@ const StudentDashboard: React.FC = () => {
                     {event.max_participants && (
                       <div className="flex items-center space-x-2">
                         <Users className="h-4 w-4 text-muted-foreground" />
-                        <span>Max: {event.max_participants} participants</span>
+                        <span>
+                          {eventCapacities[event.id] || 0} / {event.max_participants} registered
+                          {getRemainingCapacity(event) !== null && (
+                            <span className={`ml-2 font-semibold ${isEventFull(event) ? 'text-destructive' : 'text-success'}`}>
+                              ({getRemainingCapacity(event)} spots left)
+                            </span>
+                          )}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -271,9 +324,13 @@ const StudentDashboard: React.FC = () => {
                   <Button 
                     onClick={() => handleRegister(event.id)}
                     className="w-full"
-                    disabled={registering === event.id}
+                    disabled={registering === event.id || isEventFull(event)}
                   >
-                    {registering === event.id ? 'Registering...' : 'Register Now'}
+                    {isEventFull(event) 
+                      ? 'Event Full' 
+                      : registering === event.id 
+                        ? 'Registering...' 
+                        : 'Register Now'}
                   </Button>
                 </div>
               </div>
