@@ -48,6 +48,31 @@ const StudentDashboard: React.FC = () => {
     }
   }, [events]);
 
+  // Add realtime subscription for capacity updates
+  useEffect(() => {
+    if (!events.length) return;
+
+    const channel = supabase
+      .channel('event-registrations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'event_registrations'
+        },
+        (payload) => {
+          // Refresh capacities when any registration changes
+          fetchAllEventCapacities();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [events]);
+
   const fetchEvents = async () => {
     try {
       const { data, error } = await supabase
@@ -90,16 +115,21 @@ const StudentDashboard: React.FC = () => {
 
   const fetchAllEventCapacities = async () => {
     const capacities: Record<string, number> = {};
-    
-    for (const event of events) {
+    if (events.length === 0) {
+      setEventCapacities(capacities);
+      return;
+    }
+
+    // Fetch counts in parallel for better performance
+    const promises = events.map(async (event) => {
       const { count } = await supabase
         .from('event_registrations')
         .select('*', { count: 'exact', head: true })
         .eq('event_id', event.id);
-      
       capacities[event.id] = count || 0;
-    }
-    
+    });
+
+    await Promise.all(promises);
     setEventCapacities(capacities);
   };
 
