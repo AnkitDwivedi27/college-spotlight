@@ -46,6 +46,9 @@ const OrganizerDashboard: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [eventsOnSelectedDate, setEventsOnSelectedDate] = useState<Event[]>([]);
+  const [timeSlotConflict, setTimeSlotConflict] = useState(false);
+  const [suggestedSlots, setSuggestedSlots] = useState<Array<{start: string, end: string}>>([]);
   const { toast } = useToast();
 
   const [newEvent, setNewEvent] = useState({
@@ -106,6 +109,132 @@ const OrganizerDashboard: React.FC = () => {
       console.error('Error fetching registrations:', error);
     }
   };
+
+  const fetchEventsOnDate = async (date: string) => {
+    if (!date) {
+      setEventsOnSelectedDate([]);
+      return;
+    }
+
+    try {
+      const selectedDate = new Date(date);
+      selectedDate.setHours(0, 0, 0, 0);
+      
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('approval_status', 'approved')
+        .gte('event_date', selectedDate.toISOString())
+        .lt('event_date', new Date(selectedDate.getTime() + 24 * 60 * 60 * 1000).toISOString())
+        .order('start_time', { ascending: true });
+      
+      if (error) throw error;
+      setEventsOnSelectedDate(data || []);
+    } catch (error) {
+      console.error('Error fetching events on date:', error);
+    }
+  };
+
+  const checkTimeSlotConflict = (date: string, startTime: string, endTime: string) => {
+    if (!date || !startTime || !endTime) return false;
+
+    const hasConflict = eventsOnSelectedDate.some(event => {
+      const eventStart = event.start_time;
+      const eventEnd = event.end_time;
+      
+      return (
+        (startTime <= eventStart && endTime > eventStart) ||
+        (startTime < eventEnd && endTime >= eventEnd) ||
+        (startTime >= eventStart && endTime <= eventEnd)
+      );
+    });
+
+    setTimeSlotConflict(hasConflict);
+    
+    if (hasConflict) {
+      generateSuggestedSlots(date);
+    } else {
+      setSuggestedSlots([]);
+    }
+    
+    return hasConflict;
+  };
+
+  const generateSuggestedSlots = (date: string) => {
+    const suggestions: Array<{start: string, end: string}> = [];
+    const workingHours = { start: '09:00', end: '18:00' };
+    
+    // Sort events by start time
+    const sortedEvents = [...eventsOnSelectedDate].sort((a, b) => 
+      a.start_time.localeCompare(b.start_time)
+    );
+
+    // Check for slots between events
+    for (let i = 0; i < sortedEvents.length - 1; i++) {
+      const currentEnd = sortedEvents[i].end_time;
+      const nextStart = sortedEvents[i + 1].start_time;
+      
+      const gap = getTimeDifferenceInMinutes(currentEnd, nextStart);
+      if (gap >= 60) { // At least 1 hour gap
+        suggestions.push({
+          start: currentEnd,
+          end: nextStart
+        });
+      }
+    }
+
+    // Check before first event
+    if (sortedEvents.length > 0) {
+      const firstEventStart = sortedEvents[0].start_time;
+      const gap = getTimeDifferenceInMinutes(workingHours.start, firstEventStart);
+      if (gap >= 60) {
+        suggestions.unshift({
+          start: workingHours.start,
+          end: firstEventStart
+        });
+      }
+    }
+
+    // Check after last event
+    if (sortedEvents.length > 0) {
+      const lastEventEnd = sortedEvents[sortedEvents.length - 1].end_time;
+      const gap = getTimeDifferenceInMinutes(lastEventEnd, workingHours.end);
+      if (gap >= 60) {
+        suggestions.push({
+          start: lastEventEnd,
+          end: workingHours.end
+        });
+      }
+    }
+
+    // If no events on this day
+    if (sortedEvents.length === 0) {
+      suggestions.push({
+        start: workingHours.start,
+        end: workingHours.end
+      });
+    }
+
+    setSuggestedSlots(suggestions.slice(0, 3)); // Show top 3 suggestions
+  };
+
+  const getTimeDifferenceInMinutes = (time1: string, time2: string): number => {
+    const [h1, m1] = time1.split(':').map(Number);
+    const [h2, m2] = time2.split(':').map(Number);
+    return (h2 * 60 + m2) - (h1 * 60 + m1);
+  };
+
+  useEffect(() => {
+    if (newEvent.event_date) {
+      fetchEventsOnDate(newEvent.event_date);
+    }
+  }, [newEvent.event_date]);
+
+  useEffect(() => {
+    if (newEvent.event_date && newEvent.start_time && newEvent.end_time) {
+      checkTimeSlotConflict(newEvent.event_date, newEvent.start_time, newEvent.end_time);
+    }
+  }, [newEvent.event_date, newEvent.start_time, newEvent.end_time, eventsOnSelectedDate]);
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -417,6 +546,60 @@ const OrganizerDashboard: React.FC = () => {
                   required
                 />
               </div>
+
+              {/* Time Slot Availability Info */}
+              {newEvent.event_date && (
+                <div className="space-y-3 p-4 bg-secondary/20 rounded-lg border border-border">
+                  <h4 className="font-semibold text-sm text-foreground flex items-center">
+                    <Clock className="h-4 w-4 mr-2" />
+                    Events scheduled on {new Date(newEvent.event_date).toLocaleDateString()}
+                  </h4>
+                  
+                  {eventsOnSelectedDate.length > 0 ? (
+                    <div className="space-y-2">
+                      {eventsOnSelectedDate.map(event => (
+                        <div key={event.id} className="text-sm p-2 bg-background/50 rounded flex items-center justify-between">
+                          <span className="font-medium">{event.title}</span>
+                          <span className="text-muted-foreground">{event.start_time} - {event.end_time}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-success">✓ No events scheduled - All time slots available!</p>
+                  )}
+
+                  {timeSlotConflict && (
+                    <div className="mt-3 p-3 bg-warning/10 border border-warning/20 rounded">
+                      <p className="text-sm font-semibold text-warning mb-2">⚠ Time slot conflict detected!</p>
+                      {suggestedSlots.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm text-muted-foreground">Available time slots:</p>
+                          {suggestedSlots.map((slot, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setNewEvent(prev => ({
+                                  ...prev,
+                                  start_time: slot.start,
+                                  end_time: slot.end
+                                }));
+                              }}
+                              className="w-full text-left text-sm p-2 bg-background hover:bg-primary/10 rounded border border-border transition-colors"
+                            >
+                              {slot.start} - {slot.end}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!timeSlotConflict && newEvent.start_time && newEvent.end_time && (
+                    <p className="text-sm text-success">✓ This time slot is available!</p>
+                  )}
+                </div>
+              )}
 
               <div className="flex space-x-2">
                 <Button type="submit" variant="success" disabled={creating}>
