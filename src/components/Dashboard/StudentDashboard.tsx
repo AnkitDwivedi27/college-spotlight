@@ -109,25 +109,6 @@ const StudentDashboard: React.FC = () => {
     setRegistering(eventId);
     try {
       const event = events.find(e => e.id === eventId);
-      
-      // Check current registration count
-      const { count } = await supabase
-        .from('event_registrations')
-        .select('*', { count: 'exact', head: true })
-        .eq('event_id', eventId);
-      
-      const currentCount = count || 0;
-      
-      // Check if event is at max capacity
-      if (event?.max_participants && currentCount >= event.max_participants) {
-        toast({
-          title: "Event Full",
-          description: `Sorry, "${event.title}" has reached its maximum capacity of ${event.max_participants} participants.`,
-          variant: "destructive"
-        });
-        setRegistering(null);
-        return;
-      }
 
       const { error } = await supabase
         .from('event_registrations')
@@ -137,7 +118,21 @@ const StudentDashboard: React.FC = () => {
           status: 'registered'
         }]);
 
-      if (error) throw error;
+      if (error) {
+        // Check if it's a capacity error from the database trigger
+        if (error.message.includes('Event is full')) {
+          toast({
+            title: "Unable to Register",
+            description: `Sorry, "${event?.title}" has reached its maximum capacity. Registration is closed.`,
+            variant: "destructive"
+          });
+        } else {
+          throw error;
+        }
+        setRegistering(null);
+        await fetchAllEventCapacities(); // Refresh capacity display
+        return;
+      }
 
       await fetchRegistrations();
       await fetchAllEventCapacities();
