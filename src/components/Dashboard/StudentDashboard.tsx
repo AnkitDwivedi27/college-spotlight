@@ -62,14 +62,23 @@ const StudentDashboard: React.FC = () => {
           table: 'event_registrations'
         },
         (payload) => {
+          console.log('Registration change detected:', payload);
           // Refresh capacities when any registration changes
           fetchAllEventCapacities();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
+
+    // Add polling as fallback to ensure UI stays in sync
+    const pollInterval = setInterval(() => {
+      fetchAllEventCapacities();
+    }, 3000); // Poll every 3 seconds
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(pollInterval);
     };
   }, [events]);
 
@@ -156,11 +165,12 @@ const StudentDashboard: React.FC = () => {
             description: `Sorry, "${event?.title}" has reached its maximum capacity. Registration is closed.`,
             variant: "destructive"
           });
+          // Immediately refresh capacity to show updated count
+          await fetchAllEventCapacities();
         } else {
           throw error;
         }
         setRegistering(null);
-        await fetchAllEventCapacities(); // Refresh capacity display
         return;
       }
 
@@ -177,6 +187,8 @@ const StudentDashboard: React.FC = () => {
         description: error instanceof Error ? error.message : "Failed to register for event",
         variant: "destructive"
       });
+      // Refresh capacity even on error to ensure UI is in sync
+      await fetchAllEventCapacities();
     } finally {
       setRegistering(null);
     }
