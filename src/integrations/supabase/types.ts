@@ -192,6 +192,13 @@ export type Database = {
         }
         Returns: boolean
       }
+      get_event_registration_counts: {
+        Args: { p_event_ids: string[] }
+        Returns: {
+          event_id: string
+          registration_count: number
+        }[]
+      }
       get_user_profile: {
         Args: { user_uuid: string }
         Returns: {

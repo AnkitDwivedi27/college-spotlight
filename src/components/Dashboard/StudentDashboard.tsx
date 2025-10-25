@@ -129,16 +129,22 @@ const StudentDashboard: React.FC = () => {
       return;
     }
 
-    // Fetch counts in parallel for better performance
-    const promises = events.map(async (event) => {
-      const { count } = await supabase
-        .from('event_registrations')
-        .select('*', { count: 'exact', head: true })
-        .eq('event_id', event.id);
-      capacities[event.id] = count || 0;
+    // Use RPC function to get accurate counts (bypasses RLS)
+    const eventIds = events.map(e => e.id);
+    const { data, error } = await supabase.rpc('get_event_registration_counts', {
+      p_event_ids: eventIds
     });
 
-    await Promise.all(promises);
+    if (error) {
+      console.error('Error fetching event capacities:', error);
+      return;
+    }
+
+    // Map the results to the capacities object
+    data?.forEach((item: { event_id: string; registration_count: number }) => {
+      capacities[item.event_id] = item.registration_count;
+    });
+
     setEventCapacities(capacities);
   };
 
