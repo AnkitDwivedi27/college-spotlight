@@ -28,10 +28,18 @@ interface EventRegistration {
   status: string;
 }
 
+interface Certificate {
+  id: string;
+  event_id: string;
+  user_id: string;
+  issued_at: string;
+}
+
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
   const [events, setEvents] = useState<Event[]>([]);
   const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState<string | null>(null);
   const [eventCapacities, setEventCapacities] = useState<Record<string, number>>({});
@@ -40,6 +48,7 @@ const StudentDashboard: React.FC = () => {
   useEffect(() => {
     fetchEvents();
     fetchRegistrations();
+    fetchCertificates();
   }, [user]);
 
   useEffect(() => {
@@ -119,6 +128,22 @@ const StudentDashboard: React.FC = () => {
       console.error('Error fetching registrations:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCertificates = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('certificates')
+        .select('*')
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      setCertificates(data || []);
+    } catch (error) {
+      console.error('Error fetching certificates:', error);
     }
   };
 
@@ -232,6 +257,10 @@ const StudentDashboard: React.FC = () => {
 
   const isRegistered = (eventId: string) => {
     return registrations.some(reg => reg.event_id === eventId);
+  };
+
+  const hasCertificate = (eventId: string) => {
+    return certificates.some(cert => cert.event_id === eventId);
   };
 
   const getRemainingCapacity = (event: Event) => {
@@ -397,45 +426,65 @@ const StudentDashboard: React.FC = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {myRegisteredEvents.map((event) => (
-              <div key={event.id} className="p-4 border border-border rounded-lg bg-gradient-card">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
-                      <Badge className="bg-success/10 text-success border-success/20">
-                        Registered
-                      </Badge>
+            {myRegisteredEvents.map((event) => {
+              const certIssued = hasCertificate(event.id);
+              
+              return (
+                <div key={event.id} className="p-4 border border-border rounded-lg bg-gradient-card">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
+                        <Badge className="bg-success/10 text-success border-success/20">
+                          Registered
+                        </Badge>
+                        {certIssued && (
+                          <Badge className="bg-accent/10 text-accent border-accent/20">
+                            <Award className="h-3 w-3 mr-1" />
+                            Certificate Available
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground mb-3">{event.description}</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="flex items-center space-x-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span>{new Date(event.event_date).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <span>{new Date(event.event_date).toLocaleTimeString()}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <MapPin className="h-4 w-4 text-muted-foreground" />
+                          <span>{event.location}</span>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-muted-foreground mb-3">{event.description}</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>{new Date(event.event_date).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span>{new Date(event.event_date).toLocaleTimeString()}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span>{event.location}</span>
-                      </div>
+                    
+                    <div className="flex flex-col space-y-2 ml-4">
+                      {certIssued && (
+                        <Button 
+                          variant="default" 
+                          size="sm"
+                          className="bg-accent/20 hover:bg-accent/30 text-accent border border-accent/20"
+                        >
+                          <Award className="h-4 w-4 mr-1" />
+                          View Certificate
+                        </Button>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleUnregister(event.id)}
+                      >
+                        Unregister
+                      </Button>
                     </div>
-                  </div>
-                  
-                  <div className="flex flex-col space-y-2 ml-4">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleUnregister(event.id)}
-                    >
-                      Unregister
-                    </Button>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             
             {myRegisteredEvents.length === 0 && (
               <div className="text-center py-8">

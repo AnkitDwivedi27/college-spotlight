@@ -14,6 +14,52 @@ export type Database = {
   }
   public: {
     Tables: {
+      certificates: {
+        Row: {
+          event_id: string
+          id: string
+          issued_at: string
+          issued_by: string
+          user_id: string
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          issued_at?: string
+          issued_by: string
+          user_id: string
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          issued_at?: string
+          issued_by?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certificates_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certificates_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "certificates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       event_registrations: {
         Row: {
           event_id: string

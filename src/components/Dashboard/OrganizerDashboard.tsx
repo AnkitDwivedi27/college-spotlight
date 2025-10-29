@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Calendar, Clock, MapPin, Users, CheckCircle2, Trash2 } from 'lucide-react';
+import { Plus, Calendar, Clock, MapPin, Users, CheckCircle2, Trash2, Award } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -49,6 +49,8 @@ const OrganizerDashboard: React.FC = () => {
   const [eventsOnSelectedDate, setEventsOnSelectedDate] = useState<Event[]>([]);
   const [timeSlotConflict, setTimeSlotConflict] = useState(false);
   const [suggestedSlots, setSuggestedSlots] = useState<Array<{start: string, end: string}>>([]);
+  const [certificates, setCertificates] = useState<Record<string, Set<string>>>({});
+  const [issuingCertificate, setIssuingCertificate] = useState<string | null>(null);
   const { toast } = useToast();
 
   const [newEvent, setNewEvent] = useState({
@@ -65,6 +67,7 @@ const OrganizerDashboard: React.FC = () => {
   useEffect(() => {
     fetchEvents();
     fetchRegistrations();
+    fetchCertificates();
   }, [user]);
 
   const fetchEvents = async () => {
@@ -108,6 +111,77 @@ const OrganizerDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error fetching registrations:', error);
     }
+  };
+
+  const fetchCertificates = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('certificates')
+        .select('event_id, user_id');
+      
+      if (error) throw error;
+      
+      const certMap: Record<string, Set<string>> = {};
+      data?.forEach(cert => {
+        if (!certMap[cert.event_id]) {
+          certMap[cert.event_id] = new Set();
+        }
+        certMap[cert.event_id].add(cert.user_id);
+      });
+      
+      setCertificates(certMap);
+    } catch (error) {
+      console.error('Error fetching certificates:', error);
+    }
+  };
+
+  const handleIssueCertificate = async (eventId: string, userId: string, studentName: string) => {
+    if (!user) return;
+    
+    const key = `${eventId}-${userId}`;
+    setIssuingCertificate(key);
+    
+    try {
+      const { error } = await supabase
+        .from('certificates')
+        .insert({
+          event_id: eventId,
+          user_id: userId,
+          issued_by: user.id
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          toast({
+            title: "Already Issued",
+            description: `Certificate for ${studentName} has already been issued.`,
+            variant: "destructive"
+          });
+        } else {
+          throw error;
+        }
+      } else {
+        await fetchCertificates();
+        toast({
+          title: "Certificate Issued",
+          description: `Certificate issued to ${studentName} successfully!`,
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error issuing certificate",
+        description: error instanceof Error ? error.message : "Failed to issue certificate",
+        variant: "destructive"
+      });
+    } finally {
+      setIssuingCertificate(null);
+    }
+  };
+
+  const hasCertificate = (eventId: string, userId: string) => {
+    return certificates[eventId]?.has(userId) || false;
   };
 
   const fetchEventsOnDate = async (date: string) => {
@@ -679,17 +753,39 @@ const OrganizerDashboard: React.FC = () => {
                       
                       {selectedEvent === event.id && (
                         <div className="space-y-2">
-                          {eventRegistrations.map((registration) => (
-                            <div key={registration.id} className="flex items-center justify-between p-2 bg-background rounded border">
-                              <div>
-                                <span className="font-medium">{registration.profiles.full_name}</span>
-                                <p className="text-sm text-muted-foreground">{registration.profiles.email}</p>
+                          {eventRegistrations.map((registration) => {
+                            const certIssued = hasCertificate(event.id, registration.user_id);
+                            const isIssuing = issuingCertificate === `${event.id}-${registration.user_id}`;
+                            
+                            return (
+                              <div key={registration.id} className="flex items-center justify-between p-3 bg-background rounded border">
+                                <div className="flex-1">
+                                  <span className="font-medium">{registration.profiles.full_name}</span>
+                                  <p className="text-sm text-muted-foreground">{registration.profiles.email}</p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Registered on {new Date(registration.registered_at).toLocaleDateString()}
+                                  </p>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  {certIssued ? (
+                                    <Badge className="bg-success/10 text-success border-success/20">
+                                      <Award className="h-3 w-3 mr-1" />
+                                      Certificate Issued
+                                    </Badge>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleIssueCertificate(event.id, registration.user_id, registration.profiles.full_name)}
+                                      disabled={isIssuing}
+                                    >
+                                      <Award className="h-4 w-4 mr-1" />
+                                      {isIssuing ? 'Issuing...' : 'Issue Certificate'}
+                                    </Button>
+                                  )}
+                                </div>
                               </div>
-                              <Badge variant="outline">
-                                Registered on {new Date(registration.registered_at).toLocaleDateString()}
-                              </Badge>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
                     </div>
