@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Calendar, Clock, MapPin, Users, CheckCircle2, Trash2, Award } from 'lucide-react';
+import { Plus, Calendar, Clock, MapPin, Users, CheckCircle2, Trash2, Award, Mail, CheckCircle, XCircle } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -24,6 +24,8 @@ interface Event {
   category: string;
   created_at: string;
   approval_status?: string;
+  teacher_name?: string;
+  teacher_email?: string;
 }
 
 interface EventRegistration {
@@ -32,6 +34,8 @@ interface EventRegistration {
   event_id: string;
   registered_at: string;
   status: string;
+  roll_number?: string;
+  is_present?: boolean;
   profiles: {
     full_name: string;
     email: string;
@@ -44,8 +48,10 @@ const OrganizerDashboard: React.FC = () => {
   const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
+  const [selectedEventForAttendance, setSelectedEventForAttendance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [eventsOnSelectedDate, setEventsOnSelectedDate] = useState<Event[]>([]);
   const [timeSlotConflict, setTimeSlotConflict] = useState(false);
   const [suggestedSlots, setSuggestedSlots] = useState<Array<{start: string, end: string}>>([]);
@@ -61,7 +67,9 @@ const OrganizerDashboard: React.FC = () => {
     end_time: '10:00',
     location: '',
     max_participants: '',
-    category: ''
+    category: '',
+    teacherName: '',
+    teacherEmail: ''
   });
 
   useEffect(() => {
@@ -137,8 +145,106 @@ const OrganizerDashboard: React.FC = () => {
     }
   };
 
+  const handleToggleAttendance = async (registrationId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('event_registrations')
+        .update({ is_present: !currentStatus })
+        .eq('id', registrationId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Attendance ${!currentStatus ? 'marked' : 'unmarked'}`,
+      });
+
+      fetchRegistrations();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSendAttendanceEmail = async (eventId: string) => {
+    setSendingEmail(true);
+    try {
+      const event = events.find(e => e.id === eventId);
+      if (!event) throw new Error("Event not found");
+      
+      if (!event.teacher_email || !event.teacher_name) {
+        throw new Error("Teacher details not found for this event");
+      }
+
+      const eventRegistrations = registrations.filter(r => r.event_id === eventId && r.is_present);
+      
+      if (eventRegistrations.length === 0) {
+        throw new Error("No students marked as present");
+      }
+
+      const presentStudents = eventRegistrations.map(reg => ({
+        name: reg.profiles?.full_name || 'Unknown',
+        rollNumber: reg.roll_number || 'N/A',
+        email: reg.profiles?.email || 'N/A'
+      }));
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('user_id', user?.id)
+        .single();
+
+      const { error } = await supabase.functions.invoke('send-attendance-email', {
+        body: {
+          teacherName: event.teacher_name,
+          teacherEmail: event.teacher_email,
+          eventName: event.title,
+          eventDate: new Date(event.event_date).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          }),
+          eventTime: `${event.start_time || ''} - ${event.end_time || ''}`,
+          organizerName: profileData?.full_name || 'Event Organizer',
+          presentStudents
+        }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Attendance email sent to ${event.teacher_name}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
   const handleIssueCertificate = async (eventId: string, userId: string, studentName: string) => {
     if (!user) return;
+    
+    const registration = registrations.find(
+      r => r.event_id === eventId && r.user_id === userId
+    );
+    
+    if (!registration?.is_present) {
+      toast({
+        title: "Cannot Issue Certificate",
+        description: "Certificate can only be issued to students who attended the event.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     const key = `${eventId}-${userId}`;
     setIssuingCertificate(key);
@@ -238,18 +344,16 @@ const OrganizerDashboard: React.FC = () => {
     const suggestions: Array<{start: string, end: string}> = [];
     const workingHours = { start: '09:00', end: '18:00' };
     
-    // Sort events by start time
     const sortedEvents = [...eventsOnSelectedDate].sort((a, b) => 
       a.start_time.localeCompare(b.start_time)
     );
 
-    // Check for slots between events
     for (let i = 0; i < sortedEvents.length - 1; i++) {
       const currentEnd = sortedEvents[i].end_time;
       const nextStart = sortedEvents[i + 1].start_time;
       
       const gap = getTimeDifferenceInMinutes(currentEnd, nextStart);
-      if (gap >= 60) { // At least 1 hour gap
+      if (gap >= 60) {
         suggestions.push({
           start: currentEnd,
           end: nextStart
@@ -257,7 +361,6 @@ const OrganizerDashboard: React.FC = () => {
       }
     }
 
-    // Check before first event
     if (sortedEvents.length > 0) {
       const firstEventStart = sortedEvents[0].start_time;
       const gap = getTimeDifferenceInMinutes(workingHours.start, firstEventStart);
@@ -269,7 +372,6 @@ const OrganizerDashboard: React.FC = () => {
       }
     }
 
-    // Check after last event
     if (sortedEvents.length > 0) {
       const lastEventEnd = sortedEvents[sortedEvents.length - 1].end_time;
       const gap = getTimeDifferenceInMinutes(lastEventEnd, workingHours.end);
@@ -281,7 +383,6 @@ const OrganizerDashboard: React.FC = () => {
       }
     }
 
-    // If no events on this day
     if (sortedEvents.length === 0) {
       suggestions.push({
         start: workingHours.start,
@@ -289,7 +390,7 @@ const OrganizerDashboard: React.FC = () => {
       });
     }
 
-    setSuggestedSlots(suggestions.slice(0, 3)); // Show top 3 suggestions
+    setSuggestedSlots(suggestions.slice(0, 3));
   };
 
   const getTimeDifferenceInMinutes = (time1: string, time2: string): number => {
@@ -315,7 +416,6 @@ const OrganizerDashboard: React.FC = () => {
     setCreating(true);
     
     try {
-      // Validate required fields
       if (!newEvent.title.trim()) {
         throw new Error('Event title is required');
       }
@@ -329,18 +429,15 @@ const OrganizerDashboard: React.FC = () => {
         throw new Error('Category is required');
       }
 
-      // Ensure we have a valid user
       if (!user?.id) {
         throw new Error('You must be logged in to create events');
       }
 
-      // Parse and validate the date
       const eventDate = new Date(newEvent.event_date);
       if (isNaN(eventDate.getTime())) {
         throw new Error('Please enter a valid date and time');
       }
 
-      // Check if the date is in the future
       if (eventDate <= new Date()) {
         throw new Error('Event date must be in the future');
       }
@@ -354,6 +451,8 @@ const OrganizerDashboard: React.FC = () => {
         location: newEvent.location.trim(),
         max_participants: newEvent.max_participants ? parseInt(newEvent.max_participants) : null,
         category: newEvent.category.trim(),
+        teacher_name: newEvent.teacherName.trim() || null,
+        teacher_email: newEvent.teacherEmail.trim() || null,
         created_by: user.id
       };
 
@@ -377,11 +476,12 @@ const OrganizerDashboard: React.FC = () => {
         end_time: '10:00',
         location: '',
         max_participants: '',
-        category: ''
+        category: '',
+        teacherName: '',
+        teacherEmail: ''
       });
       setShowCreateForm(false);
 
-      // Check if the event was auto-approved or needs admin review
       const createdEvent = data?.[0];
       const isApproved = createdEvent?.approval_status === 'approved';
 
@@ -608,17 +708,38 @@ const OrganizerDashboard: React.FC = () => {
                     placeholder="Optional"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    value={newEvent.location}
+                    onChange={(e) => setNewEvent(prev => ({ ...prev, location: e.target.value }))}
+                    placeholder="Event location"
+                    required
+                  />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="location">Location</Label>
-                <Input
-                  id="location"
-                  value={newEvent.location}
-                  onChange={(e) => setNewEvent(prev => ({ ...prev, location: e.target.value }))}
-                  placeholder="Event location"
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="teacherName">Teacher Name</Label>
+                  <Input
+                    id="teacherName"
+                    value={newEvent.teacherName}
+                    onChange={(e) => setNewEvent(prev => ({ ...prev, teacherName: e.target.value }))}
+                    placeholder="Prof. Name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="teacherEmail">Teacher Email</Label>
+                  <Input
+                    id="teacherEmail"
+                    type="email"
+                    value={newEvent.teacherEmail}
+                    onChange={(e) => setNewEvent(prev => ({ ...prev, teacherEmail: e.target.value }))}
+                    placeholder="teacher@gehu.ac.in"
+                  />
+                </div>
               </div>
 
               {/* Time Slot Availability Info */}
@@ -742,13 +863,32 @@ const OrganizerDashboard: React.FC = () => {
                     <div className="mt-4 p-3 bg-secondary/20 rounded-lg">
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Registered Students ({eventRegistrations.length})</h4>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setSelectedEvent(selectedEvent === event.id ? null : event.id)}
-                        >
-                          {selectedEvent === event.id ? 'Hide' : 'View'} Registrations
-                        </Button>
+                        <div className="flex space-x-2">
+                          {selectedEventForAttendance === event.id && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedEventForAttendance(null)}
+                            >
+                              Hide Attendance
+                            </Button>
+                          )}
+                          {selectedEventForAttendance !== event.id && (
+                            <Button
+                              size="sm"
+                              onClick={() => setSelectedEventForAttendance(event.id)}
+                            >
+                              Mark Attendance
+                            </Button>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => setSelectedEvent(selectedEvent === event.id ? null : event.id)}
+                          >
+                            {selectedEvent === event.id ? 'Hide' : 'View'} Details
+                          </Button>
+                        </div>
                       </div>
                       
                       {selectedEvent === event.id && (
@@ -762,31 +902,74 @@ const OrganizerDashboard: React.FC = () => {
                                 <div className="flex-1">
                                   <span className="font-medium">{registration.profiles.full_name}</span>
                                   <p className="text-sm text-muted-foreground">{registration.profiles.email}</p>
+                                  {registration.roll_number && (
+                                    <p className="text-xs text-muted-foreground">Roll: {registration.roll_number}</p>
+                                  )}
                                   <p className="text-xs text-muted-foreground mt-1">
                                     Registered on {new Date(registration.registered_at).toLocaleDateString()}
                                   </p>
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  {certIssued ? (
-                                    <Badge className="bg-success/10 text-success border-success/20">
-                                      <Award className="h-3 w-3 mr-1" />
-                                      Certificate Issued
+                                
+                                {selectedEventForAttendance === event.id && (
+                                  <Button
+                                    size="sm"
+                                    variant={registration.is_present ? "default" : "outline"}
+                                    onClick={() => handleToggleAttendance(registration.id, registration.is_present || false)}
+                                    className="ml-2"
+                                  >
+                                    {registration.is_present ? (
+                                      <>
+                                        <CheckCircle className="h-4 w-4 mr-1" />
+                                        Present
+                                      </>
+                                    ) : (
+                                      <>
+                                        <XCircle className="h-4 w-4 mr-1" />
+                                        Absent
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
+
+                                {!selectedEventForAttendance && registration.is_present && (
+                                  <div className="flex items-center space-x-2">
+                                    <Badge variant="outline" className="text-xs">
+                                      <CheckCircle className="h-3 w-3 mr-1" />
+                                      Attended
                                     </Badge>
-                                  ) : (
-                                    <Button
-                                      size="sm"
-                                      onClick={() => handleIssueCertificate(event.id, registration.user_id, registration.profiles.full_name)}
-                                      disabled={isIssuing}
-                                    >
-                                      <Award className="h-4 w-4 mr-1" />
-                                      {isIssuing ? 'Issuing...' : 'Issue Certificate'}
-                                    </Button>
-                                  )}
-                                </div>
+                                    {certIssued ? (
+                                      <Badge className="bg-success/10 text-success border-success/20">
+                                        <Award className="h-3 w-3 mr-1" />
+                                        Certificate Issued
+                                      </Badge>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        onClick={() => handleIssueCertificate(event.id, registration.user_id, registration.profiles.full_name)}
+                                        disabled={isIssuing}
+                                      >
+                                        <Award className="h-4 w-4 mr-1" />
+                                        {isIssuing ? 'Issuing...' : 'Issue Certificate'}
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
                         </div>
+                      )}
+
+                      {eventRegistrations.some((r: EventRegistration) => r.is_present) && (
+                        <Button
+                          className="w-full mt-3"
+                          variant="default"
+                          onClick={() => handleSendAttendanceEmail(event.id)}
+                          disabled={sendingEmail || !event.teacher_email}
+                        >
+                          <Mail className="h-4 w-4 mr-2" />
+                          {sendingEmail ? 'Sending...' : 'Send Attendance to Teacher'}
+                        </Button>
                       )}
                     </div>
                   )}

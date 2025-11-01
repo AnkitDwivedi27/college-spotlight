@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
@@ -11,6 +13,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import { CertificateTemplate } from '@/components/Certificate/CertificateTemplate';
 
@@ -55,6 +58,9 @@ const StudentDashboard: React.FC = () => {
     eventName: string;
     issuedDate: string;
   } | null>(null);
+  const [rollNumber, setRollNumber] = useState('');
+  const [showRollNumberDialog, setShowRollNumberDialog] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -69,7 +75,6 @@ const StudentDashboard: React.FC = () => {
     }
   }, [events]);
 
-  // Add realtime subscription for capacity updates
   useEffect(() => {
     if (!events.length) return;
 
@@ -84,7 +89,6 @@ const StudentDashboard: React.FC = () => {
         },
         (payload) => {
           console.log('Registration change detected:', payload);
-          // Refresh capacities when any registration changes
           fetchAllEventCapacities();
         }
       )
@@ -92,10 +96,9 @@ const StudentDashboard: React.FC = () => {
         console.log('Realtime subscription status:', status);
       });
 
-    // Add polling as fallback to ensure UI stays in sync
     const pollInterval = setInterval(() => {
       fetchAllEventCapacities();
-    }, 3000); // Poll every 3 seconds
+    }, 3000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -166,7 +169,6 @@ const StudentDashboard: React.FC = () => {
       return;
     }
 
-    // Use RPC function to get accurate counts (bypasses RLS)
     const eventIds = events.map(e => e.id);
     const { data, error } = await supabase.rpc('get_event_registration_counts', {
       p_event_ids: eventIds
@@ -177,7 +179,6 @@ const StudentDashboard: React.FC = () => {
       return;
     }
 
-    // Map the results to the capacities object
     data?.forEach((item: { event_id: string; registration_count: number }) => {
       capacities[item.event_id] = item.registration_count;
     });
@@ -186,34 +187,50 @@ const StudentDashboard: React.FC = () => {
   };
 
   const handleRegister = async (eventId: string) => {
-    if (!user) return;
-    
-    setRegistering(eventId);
+    setSelectedEventId(eventId);
+    setShowRollNumberDialog(true);
+  };
+
+  const handleRegisterWithRollNumber = async () => {
+    if (!user || !selectedEventId) return;
+
+    if (!rollNumber.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter your roll number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setRegistering(selectedEventId);
     try {
-      const event = events.find(e => e.id === eventId);
+      const event = events.find(e => e.id === selectedEventId);
 
       const { error } = await supabase
         .from('event_registrations')
         .insert([{
           user_id: user.id,
-          event_id: eventId,
-          status: 'registered'
+          event_id: selectedEventId,
+          status: 'registered',
+          roll_number: rollNumber.trim()
         }]);
 
       if (error) {
-        // Check if it's a capacity error from the database trigger
         if (error.message.includes('Event is full')) {
           toast({
             title: "Unable to Register",
             description: `Sorry, "${event?.title}" has reached its maximum capacity. Registration is closed.`,
             variant: "destructive"
           });
-          // Immediately refresh capacity to show updated count
           await fetchAllEventCapacities();
         } else {
           throw error;
         }
         setRegistering(null);
+        setShowRollNumberDialog(false);
+        setRollNumber('');
+        setSelectedEventId(null);
         return;
       }
 
@@ -224,13 +241,16 @@ const StudentDashboard: React.FC = () => {
         title: "Registration Successful",
         description: `You have registered for "${event?.title}". See you there!`,
       });
+
+      setShowRollNumberDialog(false);
+      setRollNumber('');
+      setSelectedEventId(null);
     } catch (error) {
       toast({
         title: "Registration Failed",
         description: error instanceof Error ? error.message : "Failed to register for event",
         variant: "destructive"
       });
-      // Refresh capacity even on error to ensure UI is in sync
       await fetchAllEventCapacities();
     } finally {
       setRegistering(null);
@@ -533,6 +553,43 @@ const StudentDashboard: React.FC = () => {
               />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Roll Number Dialog */}
+      <Dialog open={showRollNumberDialog} onOpenChange={setShowRollNumberDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter Roll Number</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="rollNumber">Roll Number</Label>
+              <Input
+                id="rollNumber"
+                placeholder="e.g., 21CS45"
+                value={rollNumber}
+                onChange={(e) => setRollNumber(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleRegisterWithRollNumber();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowRollNumberDialog(false);
+              setRollNumber('');
+              setSelectedEventId(null);
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleRegisterWithRollNumber}>
+              Register
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

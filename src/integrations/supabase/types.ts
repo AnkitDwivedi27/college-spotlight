@@ -64,21 +64,27 @@ export type Database = {
         Row: {
           event_id: string
           id: string
+          is_present: boolean | null
           registered_at: string
+          roll_number: string | null
           status: string
           user_id: string
         }
         Insert: {
           event_id: string
           id?: string
+          is_present?: boolean | null
           registered_at?: string
+          roll_number?: string | null
           status?: string
           user_id: string
         }
         Update: {
           event_id?: string
           id?: string
+          is_present?: boolean | null
           registered_at?: string
+          roll_number?: string | null
           status?: string
           user_id?: string
         }
@@ -117,6 +123,8 @@ export type Database = {
           registration_deadline: string | null
           start_time: string | null
           status: string
+          teacher_email: string | null
+          teacher_name: string | null
           title: string
           updated_at: string
         }
@@ -137,6 +145,8 @@ export type Database = {
           registration_deadline?: string | null
           start_time?: string | null
           status?: string
+          teacher_email?: string | null
+          teacher_name?: string | null
           title: string
           updated_at?: string
         }
@@ -157,6 +167,8 @@ export type Database = {
           registration_deadline?: string | null
           start_time?: string | null
           status?: string
+          teacher_email?: string | null
+          teacher_name?: string | null
           title?: string
           updated_at?: string
         }
