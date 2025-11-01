@@ -6,6 +6,13 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Calendar, Clock, MapPin, Users, Award, MessageSquare } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { CertificateTemplate } from '@/components/Certificate/CertificateTemplate';
 
 interface Event {
   id: string;
@@ -43,6 +50,11 @@ const StudentDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState<string | null>(null);
   const [eventCapacities, setEventCapacities] = useState<Record<string, number>>({});
+  const [selectedCertificate, setSelectedCertificate] = useState<{
+    eventId: string;
+    eventName: string;
+    issuedDate: string;
+  } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -468,6 +480,16 @@ const StudentDashboard: React.FC = () => {
                           variant="default" 
                           size="sm"
                           className="bg-accent/20 hover:bg-accent/30 text-accent border border-accent/20"
+                          onClick={() => {
+                            const cert = certificates.find(c => c.event_id === event.id);
+                            if (cert) {
+                              setSelectedCertificate({
+                                eventId: event.id,
+                                eventName: event.title,
+                                issuedDate: cert.issued_at,
+                              });
+                            }
+                          }}
                         >
                           <Award className="h-4 w-4 mr-1" />
                           View Certificate
@@ -495,6 +517,24 @@ const StudentDashboard: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Certificate Dialog */}
+      <Dialog open={!!selectedCertificate} onOpenChange={() => setSelectedCertificate(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Certificate of Participation</DialogTitle>
+          </DialogHeader>
+          {selectedCertificate && user && (
+            <div className="relative">
+              <CertificateTemplate
+                studentName={user.name}
+                eventName={selectedCertificate.eventName}
+                issuedDate={selectedCertificate.issuedDate}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
