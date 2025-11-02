@@ -6,10 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Calendar, Clock, MapPin, Users, CheckCircle2, Trash2, Award, Mail, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, Calendar, Clock, MapPin, Users, CheckCircle2, Trash2, Award, Mail, Save } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -49,9 +50,13 @@ const OrganizerDashboard: React.FC = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [selectedEventForAttendance, setSelectedEventForAttendance] = useState<string | null>(null);
+  const [attendanceChanges, setAttendanceChanges] = useState<Record<string, boolean>>({});
+  const [attendanceSaved, setAttendanceSaved] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [savingAttendance, setSavingAttendance] = useState(false);
+  const [issuingAllCertificates, setIssuingAllCertificates] = useState(false);
   const [eventsOnSelectedDate, setEventsOnSelectedDate] = useState<Event[]>([]);
   const [timeSlotConflict, setTimeSlotConflict] = useState(false);
   const [suggestedSlots, setSuggestedSlots] = useState<Array<{start: string, end: string}>>([]);
@@ -145,20 +150,33 @@ const OrganizerDashboard: React.FC = () => {
     }
   };
 
-  const handleToggleAttendance = async (registrationId: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('event_registrations')
-        .update({ is_present: !currentStatus })
-        .eq('id', registrationId);
+  const handleAttendanceChange = (registrationId: string, isPresent: boolean) => {
+    setAttendanceChanges(prev => ({
+      ...prev,
+      [registrationId]: isPresent
+    }));
+  };
 
-      if (error) throw error;
+  const handleSaveAttendance = async (eventId: string) => {
+    setSavingAttendance(true);
+    try {
+      const updates = Object.entries(attendanceChanges).map(([registrationId, isPresent]) => 
+        supabase
+          .from('event_registrations')
+          .update({ is_present: isPresent })
+          .eq('id', registrationId)
+      );
+
+      await Promise.all(updates);
 
       toast({
         title: "Success",
-        description: `Attendance ${!currentStatus ? 'marked' : 'unmarked'}`,
+        description: "Attendance saved successfully",
       });
 
+      setAttendanceChanges({});
+      setAttendanceSaved(prev => new Set([...prev, eventId]));
+      setSelectedEventForAttendance(null);
       fetchRegistrations();
     } catch (error: any) {
       toast({
@@ -166,6 +184,8 @@ const OrganizerDashboard: React.FC = () => {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setSavingAttendance(false);
     }
   };
 
@@ -283,6 +303,63 @@ const OrganizerDashboard: React.FC = () => {
       });
     } finally {
       setIssuingCertificate(null);
+    }
+  };
+
+  const handleIssueAllCertificates = async (eventId: string) => {
+    if (!user) return;
+    
+    const presentStudents = registrations.filter(
+      r => r.event_id === eventId && r.is_present
+    );
+    
+    if (presentStudents.length === 0) {
+      toast({
+        title: "No Students Present",
+        description: "No students marked as present to issue certificates.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIssuingAllCertificates(true);
+    
+    try {
+      const certificatesToIssue = presentStudents
+        .filter(student => !hasCertificate(eventId, student.user_id))
+        .map(student => ({
+          event_id: eventId,
+          user_id: student.user_id,
+          issued_by: user.id
+        }));
+
+      if (certificatesToIssue.length === 0) {
+        toast({
+          title: "Already Issued",
+          description: "All present students have already received certificates.",
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('certificates')
+        .insert(certificatesToIssue);
+
+      if (error) throw error;
+
+      await fetchCertificates();
+      toast({
+        title: "Certificates Issued",
+        description: `Successfully issued ${certificatesToIssue.length} certificate(s)!`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error issuing certificates",
+        description: error instanceof Error ? error.message : "Failed to issue certificates",
+        variant: "destructive"
+      });
+    } finally {
+      setIssuingAllCertificates(false);
     }
   };
 
@@ -864,19 +941,18 @@ const OrganizerDashboard: React.FC = () => {
                       <div className="flex items-center justify-between mb-3">
                         <h4 className="font-medium">Registered Students ({eventRegistrations.length})</h4>
                         <div className="flex space-x-2">
-                          {selectedEventForAttendance === event.id && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setSelectedEventForAttendance(null)}
-                            >
-                              Hide Attendance
-                            </Button>
-                          )}
                           {selectedEventForAttendance !== event.id && (
                             <Button
                               size="sm"
-                              onClick={() => setSelectedEventForAttendance(event.id)}
+                              onClick={() => {
+                                setSelectedEventForAttendance(event.id);
+                                // Pre-populate attendance changes with current values
+                                const currentAttendance: Record<string, boolean> = {};
+                                eventRegistrations.forEach(reg => {
+                                  currentAttendance[reg.id] = reg.is_present || false;
+                                });
+                                setAttendanceChanges(currentAttendance);
+                              }}
                             >
                               Mark Attendance
                             </Button>
@@ -892,84 +968,125 @@ const OrganizerDashboard: React.FC = () => {
                       </div>
                       
                       {selectedEvent === event.id && (
-                        <div className="space-y-2">
-                          {eventRegistrations.map((registration) => {
-                            const certIssued = hasCertificate(event.id, registration.user_id);
-                            const isIssuing = issuingCertificate === `${event.id}-${registration.user_id}`;
-                            
-                            return (
-                              <div key={registration.id} className="flex items-center justify-between p-3 bg-background rounded border">
-                                <div className="flex-1">
-                                  <span className="font-medium">{registration.profiles.full_name}</span>
-                                  <p className="text-sm text-muted-foreground">{registration.profiles.email}</p>
-                                  {registration.roll_number && (
-                                    <p className="text-xs text-muted-foreground">Roll: {registration.roll_number}</p>
-                                  )}
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    Registered on {new Date(registration.registered_at).toLocaleDateString()}
-                                  </p>
-                                </div>
-                                
-                                {selectedEventForAttendance === event.id && (
-                                  <Button
-                                    size="sm"
-                                    variant={registration.is_present ? "default" : "outline"}
-                                    onClick={() => handleToggleAttendance(registration.id, registration.is_present || false)}
-                                    className="ml-2"
-                                  >
-                                    {registration.is_present ? (
-                                      <>
-                                        <CheckCircle className="h-4 w-4 mr-1" />
-                                        Present
-                                      </>
-                                    ) : (
-                                      <>
-                                        <XCircle className="h-4 w-4 mr-1" />
-                                        Absent
-                                      </>
-                                    )}
-                                  </Button>
-                                )}
+                        <>
+                          {/* Attendance Marking Mode */}
+                          {selectedEventForAttendance === event.id ? (
+                            <div className="space-y-3">
+                              <div className="space-y-2">
+                                {eventRegistrations.map((registration) => {
+                                  const isChecked = attendanceChanges[registration.id] ?? registration.is_present ?? false;
+                                  
+                                  return (
+                                    <div key={registration.id} className="flex items-center justify-between p-3 bg-background rounded border">
+                                      <div className="flex items-center space-x-3 flex-1">
+                                        <Checkbox
+                                          id={`attendance-${registration.id}`}
+                                          checked={isChecked}
+                                          onCheckedChange={(checked) => 
+                                            handleAttendanceChange(registration.id, checked as boolean)
+                                          }
+                                        />
+                                        <div className="flex-1">
+                                          <label 
+                                            htmlFor={`attendance-${registration.id}`}
+                                            className="font-medium cursor-pointer"
+                                          >
+                                            {registration.profiles.full_name}
+                                          </label>
+                                          <p className="text-sm text-muted-foreground">{registration.profiles.email}</p>
+                                          {registration.roll_number && (
+                                            <p className="text-xs text-muted-foreground">Roll: {registration.roll_number}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
 
-                                {!selectedEventForAttendance && registration.is_present && (
-                                  <div className="flex items-center space-x-2">
-                                    <Badge variant="outline" className="text-xs">
-                                      <CheckCircle className="h-3 w-3 mr-1" />
-                                      Attended
-                                    </Badge>
-                                    {certIssued ? (
-                                      <Badge className="bg-success/10 text-success border-success/20">
-                                        <Award className="h-3 w-3 mr-1" />
-                                        Certificate Issued
-                                      </Badge>
-                                    ) : (
-                                      <Button
-                                        size="sm"
-                                        onClick={() => handleIssueCertificate(event.id, registration.user_id, registration.profiles.full_name)}
-                                        disabled={isIssuing}
-                                      >
-                                        <Award className="h-4 w-4 mr-1" />
-                                        {isIssuing ? 'Issuing...' : 'Issue Certificate'}
-                                      </Button>
+                              <div className="flex space-x-2 pt-2">
+                                <Button
+                                  onClick={() => handleSaveAttendance(event.id)}
+                                  disabled={savingAttendance}
+                                  className="flex-1"
+                                >
+                                  <Save className="h-4 w-4 mr-2" />
+                                  {savingAttendance ? 'Saving...' : 'Save Attendance'}
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setSelectedEventForAttendance(null);
+                                    setAttendanceChanges({});
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            /* View Mode - Show student details with attendance status */
+                            <div className="space-y-2">
+                              {eventRegistrations.map((registration) => {
+                                const certIssued = hasCertificate(event.id, registration.user_id);
+                                
+                                return (
+                                  <div key={registration.id} className="flex items-center justify-between p-3 bg-background rounded border">
+                                    <div className="flex-1">
+                                      <span className="font-medium">{registration.profiles.full_name}</span>
+                                      <p className="text-sm text-muted-foreground">{registration.profiles.email}</p>
+                                      {registration.roll_number && (
+                                        <p className="text-xs text-muted-foreground">Roll: {registration.roll_number}</p>
+                                      )}
+                                      <p className="text-xs text-muted-foreground mt-1">
+                                        Registered on {new Date(registration.registered_at).toLocaleDateString()}
+                                      </p>
+                                    </div>
+
+                                    {registration.is_present && (
+                                      <div className="flex items-center space-x-2">
+                                        <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
+                                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                                          Present
+                                        </Badge>
+                                        {certIssued && (
+                                          <Badge className="bg-primary/10 text-primary border-primary/20">
+                                            <Award className="h-3 w-3 mr-1" />
+                                            Certified
+                                          </Badge>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                                );
+                              })}
+                            </div>
+                          )}
 
-                      {eventRegistrations.some((r: EventRegistration) => r.is_present) && (
-                        <Button
-                          className="w-full mt-3"
-                          variant="default"
-                          onClick={() => handleSendAttendanceEmail(event.id)}
-                          disabled={sendingEmail || !event.teacher_email}
-                        >
-                          <Mail className="h-4 w-4 mr-2" />
-                          {sendingEmail ? 'Sending...' : 'Send Attendance to Teacher'}
-                        </Button>
+                          {/* Action Buttons - Only show after attendance is saved */}
+                          {attendanceSaved.has(event.id) && eventRegistrations.some((r: EventRegistration) => r.is_present) && (
+                            <div className="flex space-x-2 mt-4 pt-4 border-t">
+                              <Button
+                                className="flex-1"
+                                variant="default"
+                                onClick={() => handleSendAttendanceEmail(event.id)}
+                                disabled={sendingEmail || !event.teacher_email}
+                              >
+                                <Mail className="h-4 w-4 mr-2" />
+                                {sendingEmail ? 'Sending...' : 'Send Attendance to Teacher'}
+                              </Button>
+                              <Button
+                                className="flex-1"
+                                variant="success"
+                                onClick={() => handleIssueAllCertificates(event.id)}
+                                disabled={issuingAllCertificates}
+                              >
+                                <Award className="h-4 w-4 mr-2" />
+                                {issuingAllCertificates ? 'Issuing...' : 'Issue Certificates'}
+                              </Button>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
