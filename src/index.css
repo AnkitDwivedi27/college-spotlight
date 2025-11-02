@@ -2,6 +2,126 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    /* College Theme - Navy Blue, Gold, White */
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    /* Navy Blue as Primary */
+    --primary: 221 83% 25%;
+    --primary-foreground: 210 40% 98%;
+    --primary-glow: 221 83% 45%;
+
+    /* Gold as Accent */
+    --accent: 45 93% 47%;
+    --accent-foreground: 222 47% 11%;
+    --accent-glow: 45 93% 67%;
+
+    /* Success - Green */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning - Orange */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Destructive - Red */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Neutral Colors */
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 25%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 25%), hsl(221 83% 45%));
+    --gradient-accent: linear-gradient(135deg, hsl(45 93% 47%), hsl(45 93% 67%));
+    --gradient-hero: linear-gradient(135deg, hsl(221 83% 25%) 0%, hsl(221 83% 35%) 50%, hsl(45 93% 47%) 100%);
+    --gradient-card: linear-gradient(to bottom right, hsl(0 0% 100%), hsl(210 40% 98%));
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(221 83% 25% / 0.05);
+    --shadow-card: 0 4px 6px -1px hsl(221 83% 25% / 0.1), 0 2px 4px -2px hsl(221 83% 25% / 0.1);
+    --shadow-glow: 0 0 20px hsl(221 83% 45% / 0.3), 0 0 40px hsl(221 83% 45% / 0.15);
+    --shadow-accent-glow: 0 0 20px hsl(45 93% 47% / 0.3), 0 0 40px hsl(45 93% 47% / 0.15);
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --primary: 221 83% 45%;
+    --primary-foreground: 210 40% 98%;
+    --primary-glow: 221 83% 55%;
+
+    --accent: 45 93% 57%;
+    --accent-foreground: 222 47% 11%;
+    --accent-glow: 45 93% 77%;
+
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 100%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --card: 217 33% 15%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 217 33% 15%;
+    --popover-foreground: 210 40% 98%;
+
+    --border: 217 33% 25%;
+    --input: 217 33% 25%;
+    --ring: 221 83% 45%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 35%), hsl(221 83% 55%));
+    --gradient-accent: linear-gradient(135deg, hsl(45 93% 57%), hsl(45 93% 77%));
+    --gradient-hero: linear-gradient(135deg, hsl(221 83% 25%) 0%, hsl(221 83% 45%) 50%, hsl(45 93% 57%) 100%);
+    --gradient-card: linear-gradient(to bottom right, hsl(217 33% 15%), hsl(217 33% 20%));
+
+    --shadow-glow: 0 0 20px hsl(221 83% 55% / 0.4), 0 0 40px hsl(221 83% 55% / 0.2);
+    --shadow-accent-glow: 0 0 20px hsl(45 93% 57% / 0.4), 0 0 40px hsl(45 93% 57% / 0.2);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif;
+  }
+}
+
 /* Education-focused College Event Management Design System
 All colors MUST be HSL.
 */
