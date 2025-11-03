@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Calendar, Clock, MapPin, Users, Award, MessageSquare } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Award, TrendingUp, CheckCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,25 @@ interface Certificate {
   user_id: string;
   issued_at: string;
 }
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { type: 'spring' as const, stiffness: 100 }
+  }
+};
 
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -308,10 +328,10 @@ const StudentDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -321,253 +341,302 @@ const StudentDashboard: React.FC = () => {
   const availableEvents = events.filter(event => !isRegistered(event.id));
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <motion.div 
+      className="min-h-screen p-4 md:p-8 space-y-8"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      {/* Header */}
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Student Dashboard</h1>
-          <p className="text-muted-foreground">Discover and register for exciting events</p>
+          <h1 className="text-4xl font-display font-bold bg-gradient-primary bg-clip-text text-transparent">
+            Student Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-2">Discover and register for exciting campus events</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Award className="h-5 w-5 text-accent" />
-          <span className="text-sm font-medium">My Learning Journey</span>
+        <div className="flex items-center gap-2 px-4 py-2 bg-gradient-card rounded-lg border border-border">
+          <TrendingUp className="h-5 w-5 text-accent" />
+          <span className="font-medium">My Learning Journey</span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-gradient-card shadow-card">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Available Events</p>
-                <p className="text-2xl font-bold text-primary">{availableEvents.length}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Available Events</p>
+                <p className="text-3xl font-bold text-primary">{availableEvents.length}</p>
               </div>
-              <Calendar className="h-8 w-8 text-primary" />
+              <div className="p-3 bg-primary/10 rounded-full group-hover:scale-110 transition-transform">
+                <Calendar className="h-8 w-8 text-primary" />
+              </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-card shadow-card">
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">My Registrations</p>
-                <p className="text-2xl font-bold text-success">{myRegisteredEvents.length}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">My Registrations</p>
+                <p className="text-3xl font-bold text-success">{myRegisteredEvents.length}</p>
               </div>
-              <Users className="h-8 w-8 text-success" />
+              <div className="p-3 bg-success/10 rounded-full group-hover:scale-110 transition-transform">
+                <CheckCircle className="h-8 w-8 text-success" />
+              </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-card shadow-card">
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Events</p>
-                <p className="text-2xl font-bold text-accent">{events.length}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Certificates</p>
+                <p className="text-3xl font-bold text-accent">{certificates.length}</p>
               </div>
-              <MessageSquare className="h-8 w-8 text-accent" />
+              <div className="p-3 bg-accent/10 rounded-full group-hover:scale-110 transition-transform">
+                <Award className="h-8 w-8 text-accent" />
+              </div>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Available Events */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Calendar className="h-5 w-5" />
-            <span>Available Events</span>
-          </CardTitle>
-          <CardDescription>
-            Discover and register for upcoming events
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {availableEvents.map((event) => (
-              <div key={event.id} className="p-4 border border-border rounded-lg bg-gradient-card hover:shadow-card transition-smooth">
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between">
-                    <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
-                    {event.category && (
-                      <Badge variant="outline" className="text-xs">{event.category}</Badge>
-                    )}
-                  </div>
-                  
-                  <p className="text-muted-foreground text-sm">{event.description}</p>
-                  
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span>{new Date(event.event_date).toLocaleDateString()}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>{new Date(event.event_date).toLocaleTimeString()}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="h-4 w-4 text-muted-foreground" />
-                      <span>{event.location}</span>
-                    </div>
-                    {event.max_participants && (
-                      <div className="flex items-center space-x-2">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span>
-                          {eventCapacities[event.id] || 0} / {event.max_participants} registered
-                          {getRemainingCapacity(event) !== null && (
-                            <span className={`ml-2 font-semibold ${isEventFull(event) ? 'text-destructive' : 'text-success'}`}>
-                              ({getRemainingCapacity(event)} spots left)
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <Button 
-                    onClick={() => handleRegister(event.id)}
-                    className="w-full"
-                    disabled={registering === event.id || isEventFull(event)}
-                  >
-                    {isEventFull(event) 
-                      ? 'Event Full' 
-                      : registering === event.id 
-                        ? 'Registering...' 
-                        : 'Register Now'}
-                  </Button>
-                </div>
+      <motion.div variants={itemVariants}>
+        <Card className="shadow-elegant border-border">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              <CardTitle>Available Events</CardTitle>
+            </div>
+            <CardDescription>
+              Browse and register for upcoming campus events
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {availableEvents.length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <p className="text-muted-foreground text-lg">No available events at the moment</p>
+                <p className="text-sm text-muted-foreground mt-2">Check back later for new opportunities!</p>
               </div>
-            ))}
-            
-            {availableEvents.length === 0 && (
-              <div className="col-span-2 text-center py-8">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No available events to register for at the moment.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {availableEvents.map((event, index) => (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <Card className="h-full bg-gradient-card border-border hover:shadow-card transition-all duration-300 group">
+                      <CardContent className="p-6">
+                        <div className="space-y-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <h3 className="text-xl font-semibold text-foreground group-hover:text-primary transition-colors">
+                              {event.title}
+                            </h3>
+                            {event.category && (
+                              <Badge variant="outline" className="shrink-0 bg-primary/10 text-primary border-primary/20">
+                                {event.category}
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <p className="text-muted-foreground text-sm line-clamp-2">{event.description}</p>
+                          
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Calendar className="h-4 w-4" />
+                              <span>{new Date(event.event_date).toLocaleDateString('en-US', { 
+                                weekday: 'short', 
+                                year: 'numeric', 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Clock className="h-4 w-4" />
+                              <span>{new Date(event.event_date).toLocaleTimeString('en-US', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <MapPin className="h-4 w-4" />
+                              <span className="truncate">{event.location}</span>
+                            </div>
+                            {event.max_participants && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Users className="h-4 w-4 text-muted-foreground" />
+                                <span className="text-muted-foreground">
+                                  {eventCapacities[event.id] || 0} / {event.max_participants} registered
+                                </span>
+                                {getRemainingCapacity(event) !== null && (
+                                  <Badge 
+                                    variant="outline" 
+                                    className={`text-xs ${
+                                      isEventFull(event) 
+                                        ? 'bg-destructive/10 text-destructive border-destructive/20' 
+                                        : 'bg-success/10 text-success border-success/20'
+                                    }`}
+                                  >
+                                    {getRemainingCapacity(event)} spots left
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <Button 
+                            onClick={() => handleRegister(event.id)}
+                            className="w-full"
+                            disabled={registering === event.id || isEventFull(event)}
+                          >
+                            {isEventFull(event) 
+                              ? 'Event Full' 
+                              : registering === event.id 
+                                ? 'Registering...' 
+                                : 'Register Now'}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* My Registered Events */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>My Registered Events</CardTitle>
-          <CardDescription>Events you have registered for</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {myRegisteredEvents.map((event) => {
-              const certIssued = hasCertificate(event.id);
-              
-              return (
-                <div key={event.id} className="p-4 border border-border rounded-lg bg-gradient-card">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
-                        <Badge className="bg-success/10 text-success border-success/20">
-                          Registered
-                        </Badge>
-                        {certIssued && (
-                          <Badge className="bg-accent/10 text-accent border-accent/20">
-                            <Award className="h-3 w-3 mr-1" />
-                            Certificate Available
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-muted-foreground mb-3">{event.description}</p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span>{new Date(event.event_date).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span>{new Date(event.event_date).toLocaleTimeString()}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span>{event.location}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col space-y-2 ml-4">
-                      {certIssued && (
-                        <Button 
-                          variant="default" 
-                          size="sm"
-                          className="bg-accent/20 hover:bg-accent/30 text-accent border border-accent/20"
-                          onClick={() => {
-                            const cert = certificates.find(c => c.event_id === event.id);
-                            if (cert) {
-                              setSelectedCertificate({
-                                eventId: event.id,
-                                eventName: event.title,
-                                issuedDate: cert.issued_at,
-                              });
-                            }
-                          }}
-                        >
-                          <Award className="h-4 w-4 mr-1" />
-                          View Certificate
-                        </Button>
-                      )}
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleUnregister(event.id)}
-                      >
-                        Unregister
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            
-            {myRegisteredEvents.length === 0 && (
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">You haven't registered for any events yet.</p>
+      <motion.div variants={itemVariants}>
+        <Card className="shadow-elegant border-border">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-success" />
+              <CardTitle>My Registered Events</CardTitle>
+            </div>
+            <CardDescription>
+              Events you have signed up for
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {myRegisteredEvents.length === 0 ? (
+              <div className="text-center py-12">
+                <CheckCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <p className="text-muted-foreground text-lg">No registrations yet</p>
+                <p className="text-sm text-muted-foreground mt-2">Register for an event to get started!</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {myRegisteredEvents.map((event, index) => {
+                  const certIssued = hasCertificate(event.id);
+                  
+                  return (
+                    <motion.div
+                      key={event.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <Card className="bg-gradient-card border-border hover:shadow-card transition-all duration-300">
+                        <CardContent className="p-6">
+                          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                            <div className="flex-1 space-y-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
+                                <Badge className="bg-success/10 text-success border-success/20">
+                                  Registered
+                                </Badge>
+                                {certIssued && (
+                                  <Badge className="bg-accent/10 text-accent border-accent/20 flex items-center gap-1">
+                                    <Award className="h-3 w-3" />
+                                    Certificate Available
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-muted-foreground text-sm">{event.description}</p>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Calendar className="h-4 w-4" />
+                                  <span>{new Date(event.event_date).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric' 
+                                  })}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <Clock className="h-4 w-4" />
+                                  <span>{new Date(event.event_date).toLocaleTimeString('en-US', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit' 
+                                  })}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                  <MapPin className="h-4 w-4" />
+                                  <span className="truncate">{event.location}</span>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-row lg:flex-col gap-2">
+                              {certIssued && (
+                                <Button 
+                                  variant="default" 
+                                  size="sm"
+                                  onClick={() => {
+                                    const cert = certificates.find(c => c.event_id === event.id);
+                                    setSelectedCertificate({
+                                      eventId: event.id,
+                                      eventName: event.title,
+                                      issuedDate: cert?.issued_at || new Date().toISOString()
+                                    });
+                                  }}
+                                  className="flex-1 lg:flex-none"
+                                >
+                                  <Award className="h-4 w-4 mr-2" />
+                                  View Certificate
+                                </Button>
+                              )}
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => handleUnregister(event.id)}
+                                className="flex-1 lg:flex-none"
+                              >
+                                Unregister
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Certificate Dialog */}
-      <Dialog open={!!selectedCertificate} onOpenChange={() => setSelectedCertificate(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Certificate of Participation</DialogTitle>
-          </DialogHeader>
-          {selectedCertificate && user && (
-            <div className="relative">
-              <CertificateTemplate
-                studentName={user.name}
-                eventName={selectedCertificate.eventName}
-                issuedDate={selectedCertificate.issuedDate}
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Roll Number Dialog */}
       <Dialog open={showRollNumberDialog} onOpenChange={setShowRollNumberDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enter Roll Number</DialogTitle>
+            <DialogTitle>Enter Your Roll Number</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="rollNumber">Roll Number</Label>
               <Input
                 id="rollNumber"
-                placeholder="e.g., 21CS45"
+                placeholder="Enter your roll number"
                 value={rollNumber}
                 onChange={(e) => setRollNumber(e.target.value)}
                 onKeyDown={(e) => {
@@ -586,13 +655,31 @@ const StudentDashboard: React.FC = () => {
             }}>
               Cancel
             </Button>
-            <Button onClick={handleRegisterWithRollNumber}>
+            <Button onClick={handleRegisterWithRollNumber} disabled={!rollNumber.trim()}>
               Register
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+
+      {/* Certificate Dialog */}
+      {selectedCertificate && (
+        <Dialog open={!!selectedCertificate} onOpenChange={() => setSelectedCertificate(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Your Certificate</DialogTitle>
+            </DialogHeader>
+            <div className="py-4">
+              <CertificateTemplate
+                eventName={selectedCertificate.eventName}
+                studentName={user?.email || 'Student'}
+                issuedDate={new Date(selectedCertificate.issuedDate).toLocaleDateString()}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </motion.div>
   );
 };
 

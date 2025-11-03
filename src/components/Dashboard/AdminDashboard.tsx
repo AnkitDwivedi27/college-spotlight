@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle, XCircle, Users, Calendar, Clock, MapPin, BarChart3 } from 'lucide-react';
+import { CheckCircle, XCircle, Users, Calendar, Clock, MapPin, BarChart3, TrendingUp, AlertCircle } from 'lucide-react';
 
 interface Event {
   id: string;
@@ -34,6 +35,23 @@ interface Profile {
   department?: string;
   year_of_study?: number;
 }
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { type: 'spring' as const, stiffness: 100 }
+  }
+};
 
 const AdminDashboard: React.FC = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -198,10 +216,10 @@ const AdminDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -209,234 +227,285 @@ const AdminDashboard: React.FC = () => {
 
   const pendingEvents = events.filter(e => e.approval_status === 'pending');
   const approvedEvents = events.filter(e => e.approval_status === 'approved');
+  const todayEvents = events.filter(e => 
+    new Date(e.event_date).toDateString() === new Date().toDateString()
+  );
   
   const stats = {
     totalEvents: events.length,
     pendingEvents: pendingEvents.length,
+    todayEvents: todayEvents.length,
     totalUsers: users.length
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <motion.div 
+      className="min-h-screen p-4 md:p-8 space-y-8"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      {/* Header */}
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage events and users across the platform</p>
+          <h1 className="text-4xl font-display font-bold bg-gradient-primary bg-clip-text text-transparent">
+            Admin Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-2">Manage events, users, and system-wide settings</p>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2 px-4 py-2 bg-gradient-card rounded-lg border border-border">
           <BarChart3 className="h-5 w-5 text-primary" />
-          <span className="text-sm font-medium">Overview</span>
+          <span className="font-medium">System Overview</span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card className="bg-gradient-card shadow-card">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Events</p>
-                <p className="text-2xl font-bold text-foreground">{stats.totalEvents}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Total Events</p>
+                <p className="text-3xl font-bold text-foreground">{stats.totalEvents}</p>
               </div>
-              <Calendar className="h-8 w-8 text-primary" />
+              <div className="p-3 bg-primary/10 rounded-full group-hover:scale-110 transition-transform">
+                <Calendar className="h-8 w-8 text-primary" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-card shadow-card">
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Pending Approval</p>
-                <p className="text-2xl font-bold text-warning">{stats.pendingEvents}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Pending Approval</p>
+                <p className="text-3xl font-bold text-warning">{stats.pendingEvents}</p>
               </div>
-              <Clock className="h-8 w-8 text-warning" />
+              <div className="p-3 bg-warning/10 rounded-full group-hover:scale-110 transition-transform">
+                <AlertCircle className="h-8 w-8 text-warning" />
+              </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-card shadow-card">
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Scheduled Today</p>
-                <p className="text-2xl font-bold text-success">{events.filter(e => new Date(e.event_date).toDateString() === new Date().toDateString()).length}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Today's Events</p>
+                <p className="text-3xl font-bold text-success">{stats.todayEvents}</p>
               </div>
-              <CheckCircle className="h-8 w-8 text-success" />
+              <div className="p-3 bg-success/10 rounded-full group-hover:scale-110 transition-transform">
+                <Clock className="h-8 w-8 text-success" />
+              </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-card shadow-card">
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Users</p>
-                <p className="text-2xl font-bold text-foreground">{stats.totalUsers}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Total Users</p>
+                <p className="text-3xl font-bold text-foreground">{stats.totalUsers}</p>
               </div>
-              <Users className="h-8 w-8 text-primary" />
+              <div className="p-3 bg-accent/10 rounded-full group-hover:scale-110 transition-transform">
+                <Users className="h-8 w-8 text-accent" />
+              </div>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Event Management */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Calendar className="h-5 w-5" />
-            <span>Event Management</span>
-          </CardTitle>
-          <CardDescription>
-            Approve pending events and manage priorities (Events with conflicts need approval)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[...pendingEvents, ...approvedEvents].map((event) => (
-              <div key={event.id} className="p-4 border border-border rounded-lg bg-gradient-card">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
-                      {event.approval_status && getStatusBadge(event.approval_status)}
-                    </div>
-                    <p className="text-muted-foreground mb-3">{event.description}</p>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        <span>{new Date(event.event_date).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
-                        <span>{event.start_time} - {event.end_time}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span>{event.location}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span>Category: {event.category}</span>
-                      </div>
-                    </div>
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      Organized by: <span className="font-medium">{event.organizer_name}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2 ml-4">
-                    {event.approval_status === 'pending' && (
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => handleApprovalUpdate(event.id, 'approved')}
-                          disabled={updating === event.id}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => handleApprovalUpdate(event.id, 'rejected')}
-                          disabled={updating === event.id}
-                        >
-                          <XCircle className="h-4 w-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    )}
-                    <div className="flex flex-col space-y-2">
-                      <span className="text-sm font-medium">Priority</span>
-                      <Select
-                        value={event.priority.toString()}
-                        onValueChange={(value) => handlePriorityUpdate(event.id, parseInt(value))}
-                        disabled={updating === event.id}
-                      >
-                        <SelectTrigger className="w-20">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1</SelectItem>
-                          <SelectItem value="2">2</SelectItem>
-                          <SelectItem value="3">3</SelectItem>
-                          <SelectItem value="4">4</SelectItem>
-                          <SelectItem value="5">5</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
+      <motion.div variants={itemVariants}>
+        <Card className="shadow-elegant border-border">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              <CardTitle>Event Management</CardTitle>
+            </div>
+            <CardDescription>
+              Review and approve pending events, manage priorities
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {events.length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <p className="text-muted-foreground text-lg">No events found</p>
               </div>
-            ))}
-            
-            {events.length === 0 && (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No events found.</p>
+            ) : (
+              <div className="space-y-4">
+                {[...pendingEvents, ...approvedEvents].map((event, index) => (
+                  <motion.div
+                    key={event.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                  >
+                    <Card className="bg-gradient-card border-border hover:shadow-card transition-all duration-300">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                          <div className="flex-1 space-y-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
+                              {event.approval_status && getStatusBadge(event.approval_status)}
+                              {event.category && (
+                                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                                  {event.category}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-muted-foreground text-sm">{event.description}</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Calendar className="h-4 w-4" />
+                                <span>{new Date(event.event_date).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric'
+                                })}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Clock className="h-4 w-4" />
+                                <span>{event.start_time} - {event.end_time}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <MapPin className="h-4 w-4" />
+                                <span className="truncate">{event.location}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Users className="h-4 w-4" />
+                                <span>By {event.organizer_name}</span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-row lg:flex-col gap-3 items-start">
+                            {event.approval_status === 'pending' && (
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  onClick={() => handleApprovalUpdate(event.id, 'approved')}
+                                  disabled={updating === event.id}
+                                  className="bg-success hover:bg-success/90"
+                                >
+                                  <CheckCircle className="h-4 w-4 mr-1" />
+                                  Approve
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleApprovalUpdate(event.id, 'rejected')}
+                                  disabled={updating === event.id}
+                                >
+                                  <XCircle className="h-4 w-4 mr-1" />
+                                  Reject
+                                </Button>
+                              </div>
+                            )}
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm font-medium text-muted-foreground">Priority</span>
+                              <Select
+                                value={event.priority.toString()}
+                                onValueChange={(value) => handlePriorityUpdate(event.id, parseInt(value))}
+                                disabled={updating === event.id}
+                              >
+                                <SelectTrigger className="w-24">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">1</SelectItem>
+                                  <SelectItem value="2">2</SelectItem>
+                                  <SelectItem value="3">3</SelectItem>
+                                  <SelectItem value="4">4</SelectItem>
+                                  <SelectItem value="5">5</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* User Management */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Users className="h-5 w-5" />
-            <span>User Management</span>
-          </CardTitle>
-          <CardDescription>
-            Overview of all platform users
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {users.map((profile) => (
-              <div key={profile.id} className="flex items-center justify-between p-3 bg-gradient-card rounded-lg border border-border">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center">
-                    <span className="text-white font-medium">
-                      {profile.full_name.split(' ').map(n => n[0]).join('')}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-foreground">{profile.full_name}</p>
-                    <p className="text-sm text-muted-foreground">{profile.email}</p>
-                    {profile.department && (
-                      <p className="text-xs text-muted-foreground">{profile.department}</p>
-                    )}
-                  </div>
-                </div>
-                <Select
-                  value={profile.role}
-                  onValueChange={(newRole) => handleRoleUpdate(profile.user_id, newRole as 'admin' | 'organizer' | 'student')}
-                >
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="student">Student</SelectItem>
-                    <SelectItem value="organizer">Organizer</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
+      <motion.div variants={itemVariants}>
+        <Card className="shadow-elegant border-border">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              <CardTitle>User Management</CardTitle>
+            </div>
+            <CardDescription>
+              Manage user roles and permissions across the platform
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {users.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <p className="text-muted-foreground text-lg">No users found</p>
               </div>
-            ))}
-            
-            {users.length === 0 && (
-              <div className="text-center py-8">
-                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No users found.</p>
+            ) : (
+              <div className="space-y-3">
+                {users.map((profile, index) => (
+                  <motion.div
+                    key={profile.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.03 }}
+                  >
+                    <Card className="bg-gradient-card border-border hover:shadow-card transition-all duration-300">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center flex-shrink-0">
+                              <span className="text-white font-semibold text-lg">
+                                {profile.full_name.split(' ').map(n => n[0]).join('')}
+                              </span>
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-foreground truncate">{profile.full_name}</p>
+                              <p className="text-sm text-muted-foreground truncate">{profile.email}</p>
+                              {profile.department && (
+                                <p className="text-xs text-muted-foreground mt-1">{profile.department}</p>
+                              )}
+                            </div>
+                          </div>
+                          <Select
+                            value={profile.role}
+                            onValueChange={(newRole) => handleRoleUpdate(profile.user_id, newRole as 'admin' | 'organizer' | 'student')}
+                          >
+                            <SelectTrigger className="w-32 flex-shrink-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="student">Student</SelectItem>
+                              <SelectItem value="organizer">Organizer</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
               </div>
             )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </motion.div>
   );
 };
 

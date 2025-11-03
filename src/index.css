@@ -197,41 +197,57 @@ All colors MUST be HSL.
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 220 25% 8%;
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 220 25% 12%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 220 25% 12%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 220 85% 65%;
+    --primary-foreground: 220 25% 8%;
+    --primary-glow: 220 95% 75%;
 
-    --secondary: 217.2 32.6% 17.5%;
+    --secondary: 220 25% 18%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 220 25% 18%;
+    --muted-foreground: 215 20% 75%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 45 95% 70%;
+    --accent-foreground: 220 25% 12%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --success: 142 70% 50%;
+    --success-foreground: 220 25% 8%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --warning: 35 90% 60%;
+    --warning-foreground: 220 25% 8%;
+
+    --destructive: 0 75% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 25% 25%;
+    --input: 220 25% 25%;
+    --ring: 220 85% 65%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(220 85% 55%), hsl(220 95% 70%));
+    --gradient-hero: linear-gradient(135deg, hsl(220 85% 55%) 0%, hsl(240 80% 65%) 50%, hsl(260 75% 70%) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(220 25% 12%), hsl(220 25% 15%));
+    
+    --shadow-elegant: 0 10px 30px -5px hsl(220 85% 65% / 0.2);
+    --shadow-card: 0 4px 20px -2px hsl(0 0% 0% / 0.5);
+    --shadow-glow: 0 0 40px hsl(220 95% 75% / 0.4);
+
+    --sidebar-background: 220 25% 10%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 220 85% 65%;
+    --sidebar-primary-foreground: 220 25% 8%;
+    --sidebar-accent: 220 25% 18%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 220 25% 25%;
+    --sidebar-ring: 220 85% 65%;
   }
 }
 

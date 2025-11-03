@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/context/AuthContext';
-import { Plus, Calendar, Clock, MapPin, Users, CheckCircle2, Trash2, Award, Mail, Save } from 'lucide-react';
+import { Plus, Calendar, Clock, MapPin, Users, CheckCircle2, X, Award, Mail, Save, TrendingUp, AlertCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 
 interface Event {
   id: string;
@@ -42,6 +44,23 @@ interface EventRegistration {
     email: string;
   };
 }
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 }
+  }
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { type: 'spring' as const, stiffness: 100 }
+  }
+};
 
 const OrganizerDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -497,54 +516,41 @@ const OrganizerDashboard: React.FC = () => {
         throw new Error('Event title is required');
       }
       if (!newEvent.event_date) {
-        throw new Error('Event date and time is required');
+        throw new Error('Event date is required');
       }
       if (!newEvent.location.trim()) {
         throw new Error('Location is required');
       }
-      if (!newEvent.category.trim()) {
-        throw new Error('Category is required');
-      }
-
-      if (!user?.id) {
-        throw new Error('You must be logged in to create events');
-      }
 
       const eventDate = new Date(newEvent.event_date);
-      if (isNaN(eventDate.getTime())) {
-        throw new Error('Please enter a valid date and time');
-      }
-
-      if (eventDate <= new Date()) {
-        throw new Error('Event date must be in the future');
-      }
-
-      const eventData = {
-        title: newEvent.title.trim(),
-        description: newEvent.description.trim() || null,
-        event_date: eventDate.toISOString(),
-        start_time: newEvent.start_time,
-        end_time: newEvent.end_time,
-        location: newEvent.location.trim(),
-        max_participants: newEvent.max_participants ? parseInt(newEvent.max_participants) : null,
-        category: newEvent.category.trim(),
-        teacher_name: newEvent.teacherName.trim() || null,
-        teacher_email: newEvent.teacherEmail.trim() || null,
-        created_by: user.id
-      };
-
-      const { data, error } = await supabase
-        .from('events')
-        .insert([eventData])
-        .select();
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw new Error(error.message || 'Database error occurred');
-      }
-
-      await fetchEvents();
       
+      const { error } = await supabase
+        .from('events')
+        .insert([{
+          title: newEvent.title.trim(),
+          description: newEvent.description.trim(),
+          event_date: eventDate.toISOString(),
+          start_time: newEvent.start_time,
+          end_time: newEvent.end_time,
+          location: newEvent.location.trim(),
+          created_by: user?.id,
+          max_participants: newEvent.max_participants ? parseInt(newEvent.max_participants) : null,
+          category: newEvent.category,
+          priority: 1,
+          approval_status: timeSlotConflict ? 'pending' : 'approved',
+          teacher_name: newEvent.teacherName.trim() || null,
+          teacher_email: newEvent.teacherEmail.trim() || null
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: timeSlotConflict ? "Event Submitted for Approval" : "Event Created",
+        description: timeSlotConflict 
+          ? "Your event has time slot conflicts. It will be reviewed by an administrator."
+          : "Your event has been created successfully!",
+      });
+
       setNewEvent({
         title: '',
         description: '',
@@ -558,19 +564,8 @@ const OrganizerDashboard: React.FC = () => {
         teacherEmail: ''
       });
       setShowCreateForm(false);
-
-      const createdEvent = data?.[0];
-      const isApproved = createdEvent?.approval_status === 'approved';
-
-      toast({
-        title: isApproved ? "Event Auto-Approved!" : "Event Submitted",
-        description: isApproved 
-          ? "No time slot conflict detected. Your event is live!" 
-          : "Time slot conflict detected. Your event is pending admin approval.",
-        variant: isApproved ? "default" : "default"
-      });
+      fetchEvents();
     } catch (error) {
-      console.error('Error creating event:', error);
       toast({
         title: "Error creating event",
         description: error instanceof Error ? error.message : "Failed to create event",
@@ -581,529 +576,537 @@ const OrganizerDashboard: React.FC = () => {
     }
   };
 
-  const handleDeleteEvent = async (eventId: string) => {
-    try {
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .eq('id', eventId)
-        .eq('created_by', user!.id);
-
-      if (error) throw error;
-
-      await fetchEvents();
-
-      toast({
-        title: "Event Deleted",
-        description: "The event has been deleted successfully.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error deleting event",
-        description: error instanceof Error ? error.message : "Failed to delete event",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <Badge className="bg-success/10 text-success border-success/20">Approved</Badge>;
-      case 'rejected':
-        return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Rejected</Badge>;
-      case 'pending':
-        return <Badge className="bg-warning/10 text-warning border-warning/20">Pending</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
-  };
-
-  const getRegistrationsForEvent = (eventId: string) => {
-    return registrations.filter(reg => reg.event_id === eventId);
-  };
-
   if (loading) {
     return (
-      <div className="p-6">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
+  const pendingEvents = events.filter(e => e.approval_status === 'pending');
+  const approvedEvents = events.filter(e => e.approval_status === 'approved');
   const totalRegistrations = registrations.length;
+  const eventWithMostRegistrations = events.reduce((max, event) => {
+    const count = registrations.filter(r => r.event_id === event.id).length;
+    return count > max.count ? { event, count } : max;
+  }, { event: null as Event | null, count: 0 });
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <motion.div 
+      className="min-h-screen p-4 md:p-8 space-y-8"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      {/* Header */}
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Organizer Dashboard</h1>
-          <p className="text-muted-foreground">Create and manage your events</p>
+          <h1 className="text-4xl font-display font-bold bg-gradient-primary bg-clip-text text-transparent">
+            Organizer Dashboard
+          </h1>
+          <p className="text-muted-foreground mt-2">Create and manage your events</p>
         </div>
         <Button 
-          variant="hero" 
+          size="lg"
           onClick={() => setShowCreateForm(true)}
           className="shadow-glow"
         >
-          <Plus className="h-4 w-4 mr-2" />
-          Create Event
+          <Plus className="h-5 w-5 mr-2" />
+          Create New Event
         </Button>
-      </div>
+      </motion.div>
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-gradient-card shadow-card">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">My Events</p>
-                <p className="text-2xl font-bold text-foreground">{events.length}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Total Events</p>
+                <p className="text-3xl font-bold text-foreground">{events.length}</p>
               </div>
-              <Calendar className="h-8 w-8 text-primary" />
+              <div className="p-3 bg-primary/10 rounded-full group-hover:scale-110 transition-transform">
+                <Calendar className="h-8 w-8 text-primary" />
+              </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-card shadow-card">
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Active Events</p>
-                <p className="text-2xl font-bold text-success">{events.length}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Pending Approval</p>
+                <p className="text-3xl font-bold text-warning">{pendingEvents.length}</p>
               </div>
-              <CheckCircle2 className="h-8 w-8 text-success" />
+              <div className="p-3 bg-warning/10 rounded-full group-hover:scale-110 transition-transform">
+                <Clock className="h-8 w-8 text-warning" />
+              </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card className="bg-gradient-card shadow-card">
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Registrations</p>
-                <p className="text-2xl font-bold text-foreground">{totalRegistrations}</p>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Total Registrations</p>
+                <p className="text-3xl font-bold text-success">{totalRegistrations}</p>
               </div>
-              <Users className="h-8 w-8 text-primary" />
+              <div className="p-3 bg-success/10 rounded-full group-hover:scale-110 transition-transform">
+                <Users className="h-8 w-8 text-success" />
+              </div>
             </div>
           </CardContent>
         </Card>
-      </div>
+        
+        <Card className="bg-gradient-card shadow-elegant border-border overflow-hidden group hover:shadow-glow transition-all duration-300">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground mb-1">Most Popular</p>
+                <p className="text-xl font-bold text-accent truncate">
+                  {eventWithMostRegistrations.event?.title || 'N/A'}
+                </p>
+                <p className="text-sm text-muted-foreground">{eventWithMostRegistrations.count} registrations</p>
+              </div>
+              <div className="p-3 bg-accent/10 rounded-full group-hover:scale-110 transition-transform">
+                <TrendingUp className="h-8 w-8 text-accent" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
-      {/* Create Event Form */}
-      {showCreateForm && (
-        <Card className="shadow-elegant border-primary/20">
+      {/* My Events */}
+      <motion.div variants={itemVariants}>
+        <Card className="shadow-elegant border-border">
           <CardHeader>
-            <CardTitle>Create New Event</CardTitle>
-            <CardDescription>Fill in the details for your new event</CardDescription>
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              <CardTitle>My Events</CardTitle>
+            </div>
+            <CardDescription>
+              Manage your created events and track registrations
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleCreateEvent} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Event Title</Label>
-                  <Input
-                    id="title"
-                    value={newEvent.title}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Enter event title"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={newEvent.category} onValueChange={(value) => setNewEvent(prev => ({ ...prev, category: value }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select event category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="academic">Academic</SelectItem>
-                      <SelectItem value="cultural">Cultural</SelectItem>
-                      <SelectItem value="sports">Sports</SelectItem>
-                      <SelectItem value="technical">Technical</SelectItem>
-                      <SelectItem value="general">General</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            {events.length === 0 ? (
+              <div className="text-center py-12">
+                <Calendar className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                <p className="text-muted-foreground text-lg">No events created yet</p>
+                <p className="text-sm text-muted-foreground mt-2 mb-4">Create your first event to get started!</p>
+                <Button onClick={() => setShowCreateForm(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Event
+                </Button>
               </div>
+            ) : (
+              <div className="space-y-4">
+                {events.map((event, index) => {
+                  const eventRegs = registrations.filter(r => r.event_id === event.id);
+                  const presentCount = eventRegs.filter(r => r.is_present).length;
+                  const hasAttendanceSaved = attendanceSaved.has(event.id) || eventRegs.some(r => r.is_present !== null);
+                  const hasTeacherDetails = event.teacher_email && event.teacher_name;
+                  const canSendEmail = hasAttendanceSaved && presentCount > 0 && hasTeacherDetails;
+                  
+                  return (
+                    <motion.div
+                      key={event.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <Card className="bg-gradient-card border-border hover:shadow-card transition-all duration-300">
+                        <CardContent className="p-6">
+                          <div className="space-y-4">
+                            <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                              <div className="flex-1 space-y-3">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <h3 className="text-xl font-semibold text-foreground">{event.title}</h3>
+                                  {event.approval_status === 'approved' && (
+                                    <Badge className="bg-success/10 text-success border-success/20">Approved</Badge>
+                                  )}
+                                  {event.approval_status === 'pending' && (
+                                    <Badge className="bg-warning/10 text-warning border-warning/20">Pending</Badge>
+                                  )}
+                                  {event.approval_status === 'rejected' && (
+                                    <Badge className="bg-destructive/10 text-destructive border-destructive/20">Rejected</Badge>
+                                  )}
+                                  {event.category && (
+                                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                                      {event.category}
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                <p className="text-muted-foreground text-sm">{event.description}</p>
+                                
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Calendar className="h-4 w-4" />
+                                    <span>{new Date(event.event_date).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric'
+                                    })}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Clock className="h-4 w-4" />
+                                    <span>{event.start_time} - {event.end_time}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <MapPin className="h-4 w-4" />
+                                    <span className="truncate">{event.location}</span>
+                                  </div>
+                                  <div className="flex items-center gap-2 text-sm">
+                                    <Users className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-foreground font-medium">{eventRegs.length}</span>
+                                    <span className="text-muted-foreground">
+                                      {event.max_participants ? `/ ${event.max_participants}` : ''} registered
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              <div className="flex flex-row lg:flex-col gap-2 flex-wrap">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => setSelectedEventForAttendance(event.id)}
+                                  className="flex-1 lg:flex-none lg:min-w-[140px]"
+                                >
+                                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                                  Mark Attendance
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleSendAttendanceEmail(event.id)}
+                                  disabled={!canSendEmail || sendingEmail}
+                                  className="flex-1 lg:flex-none lg:min-w-[140px]"
+                                >
+                                  <Mail className="h-4 w-4 mr-2" />
+                                  Send to Teacher
+                                </Button>
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleIssueAllCertificates(event.id)}
+                                  disabled={!hasAttendanceSaved || presentCount === 0 || issuingAllCertificates}
+                                  className="flex-1 lg:flex-none lg:min-w-[140px]"
+                                >
+                                  <Award className="h-4 w-4 mr-2" />
+                                  Issue Certificates
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {presentCount > 0 && (
+                              <div className="flex items-center gap-2 text-sm bg-success/5 text-success p-2 rounded-md border border-success/20">
+                                <CheckCircle2 className="h-4 w-4" />
+                                <span>{presentCount} student{presentCount !== 1 ? 's' : ''} marked present</span>
+                              </div>
+                            )}
+                            
+                            {!hasTeacherDetails && (
+                              <div className="flex items-center gap-2 text-sm bg-warning/5 text-warning p-2 rounded-md border border-warning/20">
+                                <AlertCircle className="h-4 w-4" />
+                                <span>Add teacher details to enable email feature</span>
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
 
+      {/* Create Event Dialog */}
+      <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-display">Create New Event</DialogTitle>
+            <DialogDescription>
+              Fill in the details to create a new event
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateEvent} className="space-y-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={newEvent.description}
-                  onChange={(e) => setNewEvent(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Describe your event"
-                  rows={3}
+                <Label htmlFor="title">Event Title *</Label>
+                <Input
+                  id="title"
+                  value={newEvent.title}
+                  onChange={(e) => setNewEvent({...newEvent, title: e.target.value})}
+                  placeholder="Enter event title"
                   required
                 />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="event_date">Event Date</Label>
-                  <Input
-                    id="event_date"
-                    type="date"
-                    value={newEvent.event_date}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, event_date: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="start_time">Start Time</Label>
-                  <Input
-                    id="start_time"
-                    type="time"
-                    value={newEvent.start_time}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, start_time: e.target.value }))}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="end_time">End Time</Label>
-                  <Input
-                    id="end_time"
-                    type="time"
-                    value={newEvent.end_time}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, end_time: e.target.value }))}
-                    required
-                  />
-                </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Input
+                  id="category"
+                  value={newEvent.category}
+                  onChange={(e) => setNewEvent({...newEvent, category: e.target.value})}
+                  placeholder="e.g., Workshop, Seminar"
+                />
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="max_participants">Max Capacity</Label>
-                  <Input
-                    id="max_participants"
-                    type="number"
-                    value={newEvent.max_participants}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, max_participants: e.target.value }))}
-                    placeholder="Optional"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    value={newEvent.location}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="Event location"
-                    required
-                  />
-                </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={newEvent.description}
+                onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
+                placeholder="Describe your event"
+                rows={3}
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="event_date">Event Date *</Label>
+                <Input
+                  type="date"
+                  id="event_date"
+                  value={newEvent.event_date}
+                  onChange={(e) => setNewEvent({...newEvent, event_date: e.target.value})}
+                  required
+                />
               </div>
-
+              
+              <div className="space-y-2">
+                <Label htmlFor="start_time">Start Time *</Label>
+                <Input
+                  type="time"
+                  id="start_time"
+                  value={newEvent.start_time}
+                  onChange={(e) => setNewEvent({...newEvent, start_time: e.target.value})}
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="end_time">End Time *</Label>
+                <Input
+                  type="time"
+                  id="end_time"
+                  value={newEvent.end_time}
+                  onChange={(e) => setNewEvent({...newEvent, end_time: e.target.value})}
+                  required
+                />
+              </div>
+            </div>
+            
+            {timeSlotConflict && (
+              <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg space-y-3">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-warning">Time Slot Conflict Detected</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      This time slot conflicts with existing events. Your event will require admin approval.
+                    </p>
+                  </div>
+                </div>
+                {suggestedSlots.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Suggested Available Slots:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {suggestedSlots.map((slot, index) => (
+                        <Button
+                          key={index}
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setNewEvent({
+                              ...newEvent,
+                              start_time: slot.start,
+                              end_time: slot.end
+                            });
+                          }}
+                          className="text-xs"
+                        >
+                          {slot.start} - {slot.end}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="location">Location *</Label>
+                <Input
+                  id="location"
+                  value={newEvent.location}
+                  onChange={(e) => setNewEvent({...newEvent, location: e.target.value})}
+                  placeholder="Enter location"
+                  required
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="max_participants">Max Participants</Label>
+                <Input
+                  type="number"
+                  id="max_participants"
+                  value={newEvent.max_participants}
+                  onChange={(e) => setNewEvent({...newEvent, max_participants: e.target.value})}
+                  placeholder="Leave blank for unlimited"
+                  min="1"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-4 pt-4 border-t border-border">
+              <h4 className="font-medium">Teacher Details (Optional)</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="teacherName">Teacher Name</Label>
                   <Input
                     id="teacherName"
                     value={newEvent.teacherName}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, teacherName: e.target.value }))}
-                    placeholder="Prof. Name"
+                    onChange={(e) => setNewEvent({...newEvent, teacherName: e.target.value})}
+                    placeholder="Enter teacher name"
                   />
                 </div>
+                
                 <div className="space-y-2">
                   <Label htmlFor="teacherEmail">Teacher Email</Label>
                   <Input
-                    id="teacherEmail"
                     type="email"
+                    id="teacherEmail"
                     value={newEvent.teacherEmail}
-                    onChange={(e) => setNewEvent(prev => ({ ...prev, teacherEmail: e.target.value }))}
-                    placeholder="teacher@gehu.ac.in"
+                    onChange={(e) => setNewEvent({...newEvent, teacherEmail: e.target.value})}
+                    placeholder="teacher@example.com"
                   />
                 </div>
               </div>
+            </div>
+            
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={creating}>
+                {creating ? 'Creating...' : 'Create Event'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-              {/* Time Slot Availability Info */}
-              {newEvent.event_date && (
-                <div className="space-y-3 p-4 bg-secondary/20 rounded-lg border border-border">
-                  <h4 className="font-semibold text-sm text-foreground flex items-center">
-                    <Clock className="h-4 w-4 mr-2" />
-                    Events scheduled on {new Date(newEvent.event_date).toLocaleDateString()}
-                  </h4>
+      {/* Attendance Dialog */}
+      {selectedEventForAttendance && (
+        <Dialog open={!!selectedEventForAttendance} onOpenChange={() => setSelectedEventForAttendance(null)}>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Mark Attendance</DialogTitle>
+              <DialogDescription>
+                {events.find(e => e.id === selectedEventForAttendance)?.title}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {registrations
+                .filter(r => r.event_id === selectedEventForAttendance)
+                .map((reg) => {
+                  const currentStatus = attendanceChanges[reg.id] ?? reg.is_present ?? false;
                   
-                  {eventsOnSelectedDate.length > 0 ? (
-                    <div className="space-y-2">
-                      {eventsOnSelectedDate.map(event => (
-                        <div key={event.id} className="text-sm p-2 bg-background/50 rounded flex items-center justify-between">
-                          <span className="font-medium">{event.title}</span>
-                          <span className="text-muted-foreground">{event.start_time} - {event.end_time}</span>
+                  return (
+                    <Card key={reg.id} className="bg-gradient-card border-border">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex-1">
+                            <p className="font-medium text-foreground">{reg.profiles?.full_name || 'Unknown Student'}</p>
+                            <p className="text-sm text-muted-foreground">{reg.profiles?.email}</p>
+                            {reg.roll_number && (
+                              <p className="text-xs text-muted-foreground mt-1">Roll: {reg.roll_number}</p>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                id={`present-${reg.id}`}
+                                checked={currentStatus}
+                                onCheckedChange={(checked) => 
+                                  handleAttendanceChange(reg.id, checked === true)
+                                }
+                              />
+                              <Label 
+                                htmlFor={`present-${reg.id}`}
+                                className="cursor-pointer"
+                              >
+                                Present
+                              </Label>
+                            </div>
+                            
+                            {hasCertificate(selectedEventForAttendance, reg.user_id) ? (
+                              <Badge className="bg-accent/10 text-accent border-accent/20">
+                                <Award className="h-3 w-3 mr-1" />
+                                Issued
+                              </Badge>
+                            ) : currentStatus ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleIssueCertificate(
+                                  selectedEventForAttendance, 
+                                  reg.user_id, 
+                                  reg.profiles?.full_name || 'Student'
+                                )}
+                                disabled={issuingCertificate === `${selectedEventForAttendance}-${reg.user_id}`}
+                              >
+                                <Award className="h-4 w-4 mr-1" />
+                                Issue Cert
+                              </Button>
+                            ) : null}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-success">✓ No events scheduled - All time slots available!</p>
-                  )}
-
-                  {timeSlotConflict && (
-                    <div className="mt-3 p-3 bg-warning/10 border border-warning/20 rounded">
-                      <p className="text-sm font-semibold text-warning mb-2">⚠ Time slot conflict detected!</p>
-                      {suggestedSlots.length > 0 && (
-                        <div className="space-y-2">
-                          <p className="text-sm text-muted-foreground">Available time slots:</p>
-                          {suggestedSlots.map((slot, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => {
-                                setNewEvent(prev => ({
-                                  ...prev,
-                                  start_time: slot.start,
-                                  end_time: slot.end
-                                }));
-                              }}
-                              className="w-full text-left text-sm p-2 bg-background hover:bg-primary/10 rounded border border-border transition-colors"
-                            >
-                              {slot.start} - {slot.end}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {!timeSlotConflict && newEvent.start_time && newEvent.end_time && (
-                    <p className="text-sm text-success">✓ This time slot is available!</p>
-                  )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                
+              {registrations.filter(r => r.event_id === selectedEventForAttendance).length === 0 && (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+                  <p className="text-muted-foreground">No registrations for this event yet</p>
                 </div>
               )}
-
-              <div className="flex space-x-2">
-                <Button type="submit" variant="success" disabled={creating}>
-                  {creating ? 'Creating...' : 'Create Event'}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setSelectedEventForAttendance(null)}>
+                Close
+              </Button>
+              <Button 
+                onClick={() => handleSaveAttendance(selectedEventForAttendance)}
+                disabled={savingAttendance || Object.keys(attendanceChanges).length === 0}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {savingAttendance ? 'Saving...' : 'Save Attendance'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
-
-      {/* My Events */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle>My Events</CardTitle>
-          <CardDescription>Manage your created events and track registrations</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {events.map((event) => {
-              const eventRegistrations = getRegistrationsForEvent(event.id);
-              
-              return (
-                <div key={event.id} className="p-4 border border-border rounded-lg bg-gradient-card">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <h3 className="text-lg font-semibold text-foreground">{event.title}</h3>
-                        {event.approval_status && getStatusBadge(event.approval_status)}
-                      </div>
-                      <p className="text-muted-foreground mb-3">{event.description}</p>
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
-                        <div className="flex items-center space-x-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          <span>{new Date(event.event_date).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                          <span>{event.start_time} - {event.end_time}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span>{event.location}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          <span>Registrations: {eventRegistrations.length}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteEvent(event.id)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
-                    </Button>
-                  </div>
-
-                  {eventRegistrations.length > 0 && (
-                    <div className="mt-4 p-3 bg-secondary/20 rounded-lg">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium">Registered Students ({eventRegistrations.length})</h4>
-                        <div className="flex space-x-2">
-                          {selectedEventForAttendance !== event.id && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setSelectedEventForAttendance(event.id);
-                                // Pre-populate attendance changes with current values
-                                const currentAttendance: Record<string, boolean> = {};
-                                eventRegistrations.forEach(reg => {
-                                  currentAttendance[reg.id] = reg.is_present || false;
-                                });
-                                setAttendanceChanges(currentAttendance);
-                              }}
-                            >
-                              Mark Attendance
-                            </Button>
-                          )}
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => setSelectedEvent(selectedEvent === event.id ? null : event.id)}
-                          >
-                            {selectedEvent === event.id ? 'Hide' : 'View'} Details
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      {selectedEvent === event.id && (
-                        <>
-                          {/* Attendance Marking Mode */}
-                          {selectedEventForAttendance === event.id ? (
-                            <div className="space-y-3">
-                              <div className="space-y-2">
-                                {eventRegistrations.map((registration) => {
-                                  const isChecked = attendanceChanges[registration.id] ?? registration.is_present ?? false;
-                                  
-                                  return (
-                                    <div key={registration.id} className="flex items-center justify-between p-3 bg-background rounded border">
-                                      <div className="flex items-center space-x-3 flex-1">
-                                        <Checkbox
-                                          id={`attendance-${registration.id}`}
-                                          checked={isChecked}
-                                          onCheckedChange={(checked) => 
-                                            handleAttendanceChange(registration.id, checked as boolean)
-                                          }
-                                        />
-                                        <div className="flex-1">
-                                          <label 
-                                            htmlFor={`attendance-${registration.id}`}
-                                            className="font-medium cursor-pointer"
-                                          >
-                                            {registration.profiles.full_name}
-                                          </label>
-                                          <p className="text-sm text-muted-foreground">{registration.profiles.email}</p>
-                                          {registration.roll_number && (
-                                            <p className="text-xs text-muted-foreground">Roll: {registration.roll_number}</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              <div className="flex space-x-2 pt-2">
-                                <Button
-                                  onClick={() => handleSaveAttendance(event.id)}
-                                  disabled={savingAttendance}
-                                  className="flex-1"
-                                >
-                                  <Save className="h-4 w-4 mr-2" />
-                                  {savingAttendance ? 'Saving...' : 'Save Attendance'}
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSelectedEventForAttendance(null);
-                                    setAttendanceChanges({});
-                                  }}
-                                >
-                                  Cancel
-                                </Button>
-                              </div>
-                            </div>
-                          ) : (
-                            /* View Mode - Show student details with attendance status */
-                            <div className="space-y-2">
-                              {eventRegistrations.map((registration) => {
-                                const certIssued = hasCertificate(event.id, registration.user_id);
-                                
-                                return (
-                                  <div key={registration.id} className="flex items-center justify-between p-3 bg-background rounded border">
-                                    <div className="flex-1">
-                                      <span className="font-medium">{registration.profiles.full_name}</span>
-                                      <p className="text-sm text-muted-foreground">{registration.profiles.email}</p>
-                                      {registration.roll_number && (
-                                        <p className="text-xs text-muted-foreground">Roll: {registration.roll_number}</p>
-                                      )}
-                                      <p className="text-xs text-muted-foreground mt-1">
-                                        Registered on {new Date(registration.registered_at).toLocaleDateString()}
-                                      </p>
-                                    </div>
-
-                                    {registration.is_present && (
-                                      <div className="flex items-center space-x-2">
-                                        <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
-                                          <CheckCircle2 className="h-3 w-3 mr-1" />
-                                          Present
-                                        </Badge>
-                                        {certIssued && (
-                                          <Badge className="bg-primary/10 text-primary border-primary/20">
-                                            <Award className="h-3 w-3 mr-1" />
-                                            Certified
-                                          </Badge>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {/* Action Buttons - Only show after attendance is saved */}
-                          {attendanceSaved.has(event.id) && eventRegistrations.some((r: EventRegistration) => r.is_present) && (
-                            <div className="flex space-x-2 mt-4 pt-4 border-t">
-                              <Button
-                                className="flex-1"
-                                variant="default"
-                                onClick={() => handleSendAttendanceEmail(event.id)}
-                                disabled={sendingEmail || !event.teacher_email}
-                              >
-                                <Mail className="h-4 w-4 mr-2" />
-                                {sendingEmail ? 'Sending...' : 'Send Attendance to Teacher'}
-                              </Button>
-                              <Button
-                                className="flex-1"
-                                variant="success"
-                                onClick={() => handleIssueAllCertificates(event.id)}
-                                disabled={issuingAllCertificates}
-                              >
-                                <Award className="h-4 w-4 mr-2" />
-                                {issuingAllCertificates ? 'Issuing...' : 'Issue Certificates'}
-                              </Button>
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            
-            {events.length === 0 && (
-              <div className="text-center py-8">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No events created yet. Create your first event!</p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    </motion.div>
   );
 };
 
