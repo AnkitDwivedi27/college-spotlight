@@ -535,7 +535,7 @@ const OrganizerDashboard: React.FC = () => {
           location: newEvent.location.trim(),
           created_by: user?.id,
           max_participants: newEvent.max_participants ? parseInt(newEvent.max_participants) : null,
-          category: newEvent.category,
+          category: newEvent.category.trim() || 'general',
           priority: 1,
           approval_status: timeSlotConflict ? 'pending' : 'approved',
           teacher_name: newEvent.teacherName.trim() || null,

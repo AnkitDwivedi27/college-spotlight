@@ -672,7 +672,7 @@ const StudentDashboard: React.FC = () => {
             <div className="py-4">
               <CertificateTemplate
                 eventName={selectedCertificate.eventName}
-                studentName={user?.email || 'Student'}
+                studentName={user?.name || 'Student'}
                 issuedDate={new Date(selectedCertificate.issuedDate).toLocaleDateString()}
               />
             </div>
