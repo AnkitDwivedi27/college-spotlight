@@ -91,7 +91,7 @@ const OrganizerDashboard: React.FC = () => {
     end_time: '10:00',
     location: '',
     max_participants: '',
-    category: '',
+    category: 'general',
     teacherName: '',
     teacherEmail: ''
   });
@@ -559,16 +559,16 @@ const OrganizerDashboard: React.FC = () => {
         end_time: '10:00',
         location: '',
         max_participants: '',
-        category: '',
+        category: 'general',
         teacherName: '',
         teacherEmail: ''
       });
       setShowCreateForm(false);
       fetchEvents();
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error creating event",
-        description: error instanceof Error ? error.message : "Failed to create event",
+        description: error?.message || "Failed to create event",
         variant: "destructive"
       });
     } finally {
@@ -855,12 +855,18 @@ const OrganizerDashboard: React.FC = () => {
               
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  value={newEvent.category}
-                  onChange={(e) => setNewEvent({...newEvent, category: e.target.value})}
-                  placeholder="e.g., Workshop, Seminar"
-                />
+                <Select value={newEvent.category} onValueChange={(v) => setNewEvent({ ...newEvent, category: v })}>
+                  <SelectTrigger id="category">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="academic">Academic</SelectItem>
+                    <SelectItem value="technical">Technical</SelectItem>
+                    <SelectItem value="cultural">Cultural</SelectItem>
+                    <SelectItem value="sports">Sports</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             
